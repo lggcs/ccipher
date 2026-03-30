@@ -240,17 +240,39 @@ get_params() {
             PARAMS="-k $KEY"
             ;;
         vic)
-            printf "${YELLOW}VIC Cipher - Soviet Cold War cipher${RESET}\n"
-            printf "Requires:\n"
-            printf "  - Keyphrase (20+ characters)\n"
-            printf "  - Date (6 digits, e.g., 071177)\n"
-            printf "  - Personal number (1-2 digits)\n"
-            printf "  - Indicator (5 random digits)\n"
-            KEY=$(input_field "Keyphrase (20+ chars)" "THISISAVERYLONGKEYPHRASE")
-            DATE=$(input_field "Date (6 digits)" "071177")
-            PERS=$(input_field "Personal number" "8")
-            IND=$(input_field "Indicator (5 digits)" "12345")
+            draw_box 15 1 $COLS 10 "VIC Cipher Parameters"
+            move_cursor 17 3
+            printf "${YELLOW}Soviet Cold War cipher${RESET}"
+            move_cursor 18 3
+            printf "${DIM}Keyphrase (20+ chars):${RESET}"
+            move_cursor 19 3
+            printf "${DIM}Date (6 digits):${RESET}"
+            move_cursor 20 3
+            printf "${DIM}Personal number (1-2):${RESET}"
+            move_cursor 21 3
+            printf "${DIM}Indicator (5 digits):${RESET}"
+            
+            # Get input with proper positioning
+            printf "${ESC}[?25h"
+            move_cursor 17 25
+            read -r KEY
+            [ -z "$KEY" ] && KEY="THISISAVERYLONGKEYPHRASE"
+            
+            move_cursor 18 25
+            read -r DATE
+            [ -z "$DATE" ] && DATE="071177"
+            
+            move_cursor 19 25
+            read -r PERS
+            [ -z "$PERS" ] && PERS="8"
+            
+            move_cursor 20 25
+            read -r IND
+            [ -z "$IND" ] && IND="12345"
+            printf "${ESC}[?25l"
+            
             PARAMS="-k $KEY -d $DATE -p $PERS -i $IND"
+            current_row=23
             ;;
         *)
             PARAMS=""
