@@ -895,33 +895,641 @@ elif [ "$adfgvx_mode" = "decrypt" ]; then
     fi
 }
 
+# Simple Substitution Cipher - monoalphabetic substitution with keyword
+simple_substitution_cipher() {
+    sub_text="$1"
+    sub_key="$2"
+    sub_mode="$3"
+    sub_result=""
+    sub_char=""
+    sub_pos=""
+    sub_upper_text=""
+    sub_upper_key=""
+    sub_alphabet=""
+    sub_cipher_alphabet=""
+    sub_i=""
 
+    # Standard alphabet
+    sub_alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+    # Normalize key: uppercase, remove duplicates while preserving order
+    sub_upper_key=$(echo "$sub_key" | tr 'a-z' 'A-Z' | tr -cd 'A-Z')
+
+    # Build cipher alphabet: unique key letters followed by remaining alphabet letters
+    sub_cipher_alphabet=""
+    for sub_i in $(echo "$sub_upper_key" | grep -o .); do
+        if ! echo "$sub_cipher_alphabet" | grep -q "$sub_i"; then
+            sub_cipher_alphabet="$sub_cipher_alphabet$sub_i"
+        fi
+    done
+    for sub_i in $(echo "$sub_alphabet" | grep -o .); do
+        if ! echo "$sub_cipher_alphabet" | grep -q "$sub_i"; then
+            sub_cipher_alphabet="$sub_cipher_alphabet$sub_i"
+        fi
+    done
+
+    # Normalize text
+    sub_upper_text=$(echo "$sub_text" | tr 'a-z' 'A-Z')
+
+    if [ "$sub_mode" = "decrypt" ]; then
+        # Swap alphabet and cipher alphabet for decryption
+        sub_tmp="$sub_alphabet"
+        sub_alphabet="$sub_cipher_alphabet"
+        sub_cipher_alphabet="$sub_tmp"
+    fi
+
+    # Process each character
+    for sub_i in $(seq 1 ${#sub_upper_text}); do
+        sub_char=$(echo "$sub_upper_text" | cut -c $sub_i)
+        sub_pos=$(expr index "$sub_alphabet" "$sub_char")
+        if [ "$sub_pos" -gt 0 ]; then
+            sub_result="$sub_result$(echo "$sub_cipher_alphabet" | cut -c $sub_pos)"
+        else
+            sub_result="$sub_result$sub_char"
+        fi
+    done
+
+    echo "$sub_result"
+}
+
+# Polybius Square Cipher - maps letters to row/column coordinates
+polybius_cipher() {
+    poly_text="$1"
+    poly_key="$2"
+    poly_mode="$3"
+    poly_result=""
+    poly_char=""
+    poly_pos=""
+    poly_row=""
+    poly_col=""
+    poly_index=""
+    poly_square=""
+    poly_i=""
+
+    # Create square: key (unique, J=I) followed by remaining letters
+    poly_square=""
+    poly_key=$(echo "$poly_key" | tr 'a-z' 'A-Z' | tr 'J' 'I' | tr -cd 'A-Z')
+    for poly_i in $(echo "$poly_key" | grep -o .); do
+        if ! echo "$poly_square" | grep -q "$poly_i"; then
+            poly_square="$poly_square$poly_i"
+        fi
+    done
+    for poly_i in A B C D E F G H I K L M N O P Q R S T U V W X Y Z; do
+        if ! echo "$poly_square" | grep -q "$poly_i"; then
+            poly_square="$poly_square$poly_i"
+        fi
+    done
+
+    # Process based on mode
+    if [ "$poly_mode" = "encrypt" ]; then
+        poly_text=$(echo "$poly_text" | tr 'a-z' 'A-Z' | tr 'J' 'I' | tr -d ' ')
+        for poly_i in $(seq 1 ${#poly_text}); do
+            poly_char=$(echo "$poly_text" | cut -c $poly_i)
+            poly_pos=$(expr index "$poly_square" "$poly_char")
+            if [ "$poly_pos" -gt 0 ]; then
+                poly_row=$(( (poly_pos - 1) / 5 + 1 ))
+                poly_col=$(( (poly_pos - 1) % 5 + 1 ))
+                poly_result="$poly_result$poly_row$poly_col"
+            else
+                echo "Error: Invalid character '$poly_char' in input" >&2
+                return 1
+            fi
+        done
+    else
+        # Decrypt: pairs of digits
+        poly_text=$(echo "$poly_text" | tr -d ' ')
+        if [ $(( ${#poly_text} % 2 )) -ne 0 ]; then
+            echo "Error: Ciphertext must have even number of digits for decryption" >&2
+            return 1
+        fi
+        poly_i=1
+        while [ $poly_i -le ${#poly_text} ]; do
+            poly_row=$(echo "$poly_text" | cut -c $poly_i)
+            poly_col=$(echo "$poly_text" | cut -c $((poly_i + 1)))
+            if [ "$poly_row" -ge 1 ] && [ "$poly_row" -le 5 ] && [ "$poly_col" -ge 1 ] && [ "$poly_col" -le 5 ]; then
+                poly_index=$(( (poly_row - 1) * 5 + poly_col ))
+                poly_result="$poly_result$(echo "$poly_square" | cut -c $poly_index)"
+            else
+                echo "Error: Invalid coordinate ($poly_row, $poly_col)" >&2
+                return 1
+            fi
+            poly_i=$((poly_i + 2))
+        done
+    fi
+
+    echo "$poly_result"
+}
+
+# Bacon Cipher - encodes letters as 5-bit binary using A/B
+bacon_cipher() {
+    bacon_text="$1"
+    bacon_mode="$2"
+    bacon_result=""
+    bacon_char=""
+    bacon_code=""
+    bacon_upper=""
+    bacon_i=""
+    bacon_j=""
+
+    # Baconian alphabet (24 letters: I=J, U=V in classic version, but we use 26)
+    # Classic: A=aaaaa, B=aaaab, ..., Z=bbaba (I/J and U/V share codes)
+    bacon_upper="ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+    if [ "$bacon_mode" = "encrypt" ]; then
+        bacon_text=$(echo "$bacon_text" | tr 'a-z' 'A-Z' | tr -cd 'A-Z')
+        for bacon_i in $(seq 1 ${#bacon_text}); do
+            bacon_char=$(echo "$bacon_text" | cut -c $bacon_i)
+            bacon_pos=$(expr index "$bacon_upper" "$bacon_char")
+            if [ "$bacon_pos" -gt 0 ]; then
+                # Convert position-1 to 5-bit binary, A=0, B=1
+                bacon_pos=$((bacon_pos - 1))
+                bacon_code=""
+                for bacon_j in 5 4 3 2 1; do
+                    if [ $((bacon_pos % 2)) -eq 1 ]; then
+                        bacon_code="B$bacon_code"
+                    else
+                        bacon_code="A$bacon_code"
+                    fi
+                    bacon_pos=$((bacon_pos / 2))
+                done
+                bacon_result="$bacon_result$bacon_code"
+            fi
+        done
+    else
+        # Decrypt: process in groups of 5
+        bacon_text=$(echo "$bacon_text" | tr 'a-z' 'A-Z' | tr -cd 'AB')
+        if [ $(( ${#bacon_text} % 5 )) -ne 0 ]; then
+            echo "Error: Ciphertext length must be multiple of 5 for decryption" >&2
+            return 1
+        fi
+        bacon_i=1
+        while [ $bacon_i -le ${#bacon_text} ]; do
+            bacon_code=""
+            for bacon_j in 0 1 2 3 4; do
+                bacon_char=$(echo "$bacon_text" | cut -c $((bacon_i + bacon_j)))
+                bacon_code="$bacon_code$bacon_char"
+            done
+            # Convert 5 A/B to binary to position
+            bacon_pos=0
+            for bacon_j in 1 2 3 4 5; do
+                bacon_char=$(echo "$bacon_code" | cut -c $bacon_j)
+                bacon_pos=$((bacon_pos * 2))
+                if [ "$bacon_char" = "B" ]; then
+                    bacon_pos=$((bacon_pos + 1))
+                fi
+            done
+            bacon_result="$bacon_result$(echo "$bacon_upper" | cut -c $((bacon_pos + 1)))"
+            bacon_i=$((bacon_i + 5))
+        done
+    fi
+
+    echo "$bacon_result"
+}
+
+# Columnar Transposition Cipher
+columnar_transposition_cipher() {
+    ct_text="$1"
+    ct_key="$2"
+    ct_mode="$3"
+    ct_result=""
+    ct_upper_key=""
+    ct_upper_text=""
+    ct_num_cols=""
+    ct_num_rows=""
+    ct_total_len=""
+    ct_i=""
+    ct_j=""
+    ct_pos=""
+    ct_col_chars=""
+    ct_row=""
+    ct_col=""
+    ct_idx=""
+    ct_order=""
+    ct_inverse_order=""
+
+    # Normalize
+    ct_upper_key=$(echo "$ct_key" | tr 'a-z' 'A-Z' | tr -cd 'A-Z')
+    ct_upper_text=$(echo "$ct_text" | tr 'a-z' 'A-Z' | tr -d ' ')
+
+    ct_num_cols=${#ct_upper_key}
+    ct_total_len=${#ct_upper_text}
+    ct_num_rows=$(( (ct_total_len + ct_num_cols - 1) / ct_num_cols ))
+
+    # Pad text if needed for encryption
+    if [ "$ct_mode" = "encrypt" ]; then
+        while [ $(( ${#ct_upper_text} % ct_num_cols )) -ne 0 ]; do
+            ct_upper_text="${ct_upper_text}X"
+        done
+        ct_total_len=${#ct_upper_text}
+        ct_num_rows=$((ct_total_len / ct_num_cols))
+    fi
+
+    # Calculate column order based on key letter positions (1-indexed, sorted by letter)
+    # For key "KEY": E(1), K(0), Y(2) -> order: 1, 0, 2 (K is col 0, E is col 1, Y is col 2)
+    ct_order=""
+    ct_inverse_order=""
+    for ct_i in $(seq 1 $ct_num_cols); do
+        ct_pos=$(echo "$ct_upper_key" | fold -w1 | nl -nln | sort -k2 | awk -v n="$ct_i" 'NR==n {print $1}')
+        ct_order="$ct_order $ct_pos"
+        ct_inverse_order="$ct_inverse_order"
+    done
+    
+    # Get the reading order for columns (which column position to read first, second, etc.)
+    ct_order=$(echo "$ct_upper_key" | fold -w1 | nl -nln | sort -k2 | awk '{print $1}')
+
+    if [ "$ct_mode" = "encrypt" ]; then
+        # Read columns in sorted key order
+        for ct_col_pos in $ct_order; do
+            ct_col=$((ct_col_pos - 1))
+            ct_j=$ct_col
+            while [ $ct_j -lt $ct_total_len ]; do
+                ct_result="$ct_result$(echo "$ct_upper_text" | cut -c $((ct_j + 1)))"
+                ct_j=$((ct_j + ct_num_cols))
+            done
+        done
+    else
+        # Decryption: Calculate how many chars per column, fill columns in sorted key order, read in original order
+        ct_num_rows=$((ct_total_len / ct_num_cols))
+        
+        # Initialize column strings
+        for ct_i in $(seq 1 $ct_num_cols); do
+            eval "ct_col_$ct_i=''"
+        done
+        
+        # Fill columns in sorted key order
+        ct_idx=1
+        for ct_col_pos in $ct_order; do
+            eval "ct_col_${ct_col_pos}=\$(echo \"\$ct_upper_text\" | cut -c ${ct_idx}-$((ct_idx + ct_num_rows - 1)))"
+            ct_idx=$((ct_idx + ct_num_rows))
+        done
+        
+        # Read rows in original key order (left to right)
+        for ct_row in $(seq 1 $ct_num_rows); do
+            for ct_col in $(seq 1 $ct_num_cols); do
+                eval "ct_col_chars=\"\$ct_col_${ct_col}\""
+                ct_char=$(echo "$ct_col_chars" | cut -c $ct_row)
+                ct_result="$ct_result$ct_char"
+            done
+        done
+    fi
+
+    echo "$ct_result"
+}
+
+# Autokey Cipher - Vigenère with plaintext appended to key
+autokey_cipher() {
+    ak_text="$1"
+    ak_key="$2"
+    ak_mode="$3"
+    ak_result=""
+    ak_full_key=""
+    ak_char_text=""
+    ak_char_key=""
+    ak_val_text=""
+    ak_val_key=""
+    ak_shift=""
+    ak_i=""
+
+    # Normalize
+    ak_text=$(echo "$ak_text" | tr 'a-z' 'A-Z' | tr -d ' ')
+    ak_key=$(echo "$ak_key" | tr 'a-z' 'A-Z' | tr -d ' ')
+
+    if [ "$ak_mode" = "encrypt" ]; then
+        # Key + plaintext (without last char) = full key
+        ak_full_key="${ak_key}${ak_text}"
+        for ak_i in $(seq 1 ${#ak_text}); do
+            ak_char_text=$(echo "$ak_text" | cut -c $ak_i)
+            ak_char_key=$(echo "$ak_full_key" | cut -c $ak_i)
+            ak_val_text=$(($(printf '%d' "'$ak_char_text") - 65))
+            ak_val_key=$(($(printf '%d' "'$ak_char_key") - 65))
+            ak_shift=$(( (ak_val_text + ak_val_key) % 26 + 65 ))
+            ak_result="$ak_result$(printf "\\$(printf '%03o' $ak_shift)")"
+        done
+    else
+        # Decryption: key expands as we decrypt
+        for ak_i in $(seq 1 ${#ak_text}); do
+            ak_char_text=$(echo "$ak_text" | cut -c $ak_i)
+            if [ $ak_i -le ${#ak_key} ]; then
+                ak_char_key=$(echo "$ak_key" | cut -c $ak_i)
+            else
+                ak_char_key=$(echo "$ak_result" | cut -c $((ak_i - ${#ak_key})))
+            fi
+            ak_val_text=$(($(printf '%d' "'$ak_char_text") - 65))
+            ak_val_key=$(($(printf '%d' "'$ak_char_key") - 65))
+            ak_shift=$(( (ak_val_text - ak_val_key + 26) % 26 + 65 ))
+            ak_result="$ak_result$(printf "\\$(printf '%03o' $ak_shift)")"
+        done
+    fi
+
+    echo "$ak_result"
+}
+
+# Gronsfeld Cipher - Vigenère with numeric key
+gronsfeld_cipher() {
+    gr_text="$1"
+    gr_key="$2"
+    gr_mode="$3"
+    gr_result=""
+    gr_char=""
+    gr_key_digit=""
+    gr_val=""
+    gr_shift=""
+    gr_i=""
+    gr_key_len=""
+
+    # Normalize text
+    gr_text=$(echo "$gr_text" | tr 'a-z' 'A-Z' | tr -d ' ')
+    gr_key=$(echo "$gr_key" | tr -cd '0-9')
+    gr_key_len=${#gr_key}
+
+    # Validate key
+    if [ -z "$gr_key" ]; then
+        echo "Error: Key must contain digits only" >&2
+        return 1
+    fi
+
+    for gr_i in $(seq 1 ${#gr_text}); do
+        gr_char=$(echo "$gr_text" | cut -c $gr_i)
+        gr_key_digit=$(echo "$gr_key" | cut -c $(( (gr_i - 1) % gr_key_len + 1 )))
+        gr_val=$(($(printf '%d' "'$gr_char") - 65))
+
+        if [ "$gr_mode" = "encrypt" ]; then
+            gr_shift=$(( (gr_val + gr_key_digit) % 26 + 65 ))
+        else
+            gr_shift=$(( (gr_val - gr_key_digit + 26) % 26 + 65 ))
+        fi
+        gr_result="$gr_result$(printf "\\$(printf '%03o' $gr_shift)")"
+    done
+
+    echo "$gr_result"
+}
+
+# Porta Cipher - uses 13 alphabets (one for each key letter pair)
+porta_cipher() {
+    porta_text="$1"
+    porta_key="$2"
+   porta_mode="$3"
+    porta_result=""
+    porta_char_text=""
+    porta_char_key=""
+    porta_key_idx=""
+   porta_alphabet_idx=""
+   porta_plain_idx=""
+   porta_cipher_idx=""
+   porta_i=""
+
+    # Porta tableau: 13 rows, each row shifts differently
+    # Row N (key letter N) shifts position N in the alphabet to A
+    # A/B: NOPQRSTUVWXYZABCDEFGHIJKLM
+    # C/D: OPQRSTUVWXYZABCDEFGHIJKLMN
+    # etc.
+    porta_text=$(echo "$porta_text" | tr 'a-z' 'A-Z' | tr -d ' ')
+    porta_key=$(echo "$porta_key" | tr 'a-z' 'A-Z' | tr -d ' ')
+
+    for porta_i in $(seq 1 ${#porta_text}); do
+        porta_char_text=$(echo "$porta_text" | cut -c $porta_i)
+        porta_char_key=$(echo "$porta_key" | cut -c $(( (porta_i - 1) % ${#porta_key} + 1 )))
+
+        # Convert key letter to row (A/B=0, C/D=1, ..., Y/Z=12)
+        porta_key_idx=$(( ($(printf '%d' "'$porta_char_key") - 65) / 2 ))
+
+        # Plaintext position
+        porta_plain_idx=$(($(printf '%d' "'$porta_char_text") - 65))
+
+        # Porta is self-reciprocal: same operation for encrypt/decrypt
+        # Row porta_key_idx defines the mapping
+        if [ "$porta_mode" = "encrypt" ]; then
+            # For encryption: if plain in first half (0-12), cipher is mapped from second half
+            # If plain in second half (13-25), cipher is mapped from first half
+            if [ $porta_plain_idx -lt 13 ]; then
+                porta_cipher_idx=$(( 13 + (porta_plain_idx + porta_key_idx) % 13 ))
+            else
+                porta_cipher_idx=$(( (porta_plain_idx - 13 - porta_key_idx + 13) % 13 ))
+            fi
+        else
+            # Decryption is the same as encryption in Porta
+            if [ $porta_plain_idx -lt 13 ]; then
+                porta_cipher_idx=$(( 13 + (porta_plain_idx + porta_key_idx) % 13 ))
+            else
+                porta_cipher_idx=$(( (porta_plain_idx - 13 - porta_key_idx + 13) % 13 ))
+            fi
+        fi
+
+        porta_result="$porta_result$(printf "\\$(printf '%03o' $((porta_cipher_idx + 65)))")"
+    done
+
+    echo "$porta_result"
+}
+
+# Bifid Cipher - combines Polybius square with transposition
+bifid_cipher() {
+    bifid_text="$1"
+    bifid_key="$2"
+    bifid_mode="$3"
+    bifid_result=""
+    bifid_char=""
+    bifid_pos=""
+    bifid_row=""
+    bifid_col=""
+    bifid_square=""
+    bifid_rows=""
+    bifid_cols=""
+    bifid_combined=""
+    bifid_i=""
+
+    # Create square: key + remaining letters (J=I)
+    bifid_square=""
+    bifid_key=$(echo "$bifid_key" | tr 'a-z' 'A-Z' | tr 'J' 'I' | tr -cd 'A-Z')
+    for bifid_i in $(echo "$bifid_key" | grep -o .); do
+        if ! echo "$bifid_square" | grep -q "$bifid_i"; then
+            bifid_square="$bifid_square$bifid_i"
+        fi
+    done
+    for bifid_i in A B C D E F G H I K L M N O P Q R S T U V W X Y Z; do
+        if ! echo "$bifid_square" | grep -q "$bifid_i"; then
+            bifid_square="$bifid_square$bifid_i"
+        fi
+    done
+
+    # Normalize text
+    bifid_text=$(echo "$bifid_text" | tr 'a-z' 'A-Z' | tr 'J' 'I' | tr -d ' ')
+
+    if [ "$bifid_mode" = "encrypt" ]; then
+        # Get row and column coordinates
+        bifid_rows=""
+        bifid_cols=""
+        for bifid_i in $(seq 1 ${#bifid_text}); do
+            bifid_char=$(echo "$bifid_text" | cut -c $bifid_i)
+            bifid_pos=$(expr index "$bifid_square" "$bifid_char")
+            bifid_row=$(( (bifid_pos - 1) / 5 + 1 ))
+            bifid_col=$(( (bifid_pos - 1) % 5 + 1 ))
+            bifid_rows="$bifid_rows$bifid_row"
+            bifid_cols="$bifid_cols$bifid_col"
+        done
+
+        # Combine: rows followed by cols, then read pairs
+        bifid_combined="$bifid_rows$bifid_cols"
+        bifid_i=1
+        while [ $bifid_i -le ${#bifid_combined} ]; do
+            bifid_row=$(echo "$bifid_combined" | cut -c $bifid_i)
+            bifid_col=$(echo "$bifid_combined" | cut -c $((bifid_i + 1)))
+            bifid_pos=$(( (bifid_row - 1) * 5 + bifid_col ))
+            bifid_result="$bifid_result$(echo "$bifid_square" | cut -c $bifid_pos)"
+            bifid_i=$((bifid_i + 2))
+        done
+    else
+        # Decrypt: convert to coords, split in half, read row/col pairs
+        bifid_combined=""
+        for bifid_i in $(seq 1 ${#bifid_text}); do
+            bifid_char=$(echo "$bifid_text" | cut -c $bifid_i)
+            bifid_pos=$(expr index "$bifid_square" "$bifid_char")
+            bifid_row=$(( (bifid_pos - 1) / 5 + 1 ))
+            bifid_col=$(( (bifid_pos - 1) % 5 + 1 ))
+            bifid_combined="$bifid_combined$bifid_row$bifid_col"
+        done
+
+        # Split in half
+        bifid_rows=$(echo "$bifid_combined" | cut -c 1-$(( ${#bifid_text} )))
+        bifid_cols=$(echo "$bifid_combined" | cut -c $(( ${#bifid_text} + 1 ))-)
+
+        for bifid_i in $(seq 1 ${#bifid_text}); do
+            bifid_row=$(echo "$bifid_rows" | cut -c $bifid_i)
+            bifid_col=$(echo "$bifid_cols" | cut -c $bifid_i)
+            bifid_pos=$(( (bifid_row - 1) * 5 + bifid_col ))
+            bifid_result="$bifid_result$(echo "$bifid_square" | cut -c $bifid_pos)"
+        done
+    fi
+
+    echo "$bifid_result"
+}
+
+# Four-Square Cipher - uses four 5x5 squares
+foursquare_cipher() {
+    fsq_text="$1"
+    fsq_key1="$2"
+    fsq_key2="$3"
+    fsq_mode="$4"
+    fsq_result=""
+    fsq_char1=""
+    fsq_char2=""
+    fsq_pos1=""
+    fsq_pos2=""
+    fsq_row1=""
+    fsq_col1=""
+    fsq_row2=""
+    fsq_col2=""
+    fsq_sq1=""
+    fsq_sq2=""
+    fsq_alpha=""
+    fsq_i=""
+
+    # Standard alphabet (no J)
+    fsq_alpha="ABCDEFGHIKLMNOPQRSTUVWXYZ"
+
+    # Build square 1 (upper right): key1 + remaining
+    fsq_sq1=""
+    fsq_key1=$(echo "$fsq_key1" | tr 'a-z' 'A-Z' | tr 'J' 'I' | tr -cd 'A-Z')
+    for fsq_i in $(echo "$fsq_key1" | grep -o .); do
+        if ! echo "$fsq_sq1" | grep -q "$fsq_i"; then
+            fsq_sq1="$fsq_sq1$fsq_i"
+        fi
+    done
+    for fsq_i in $(echo "$fsq_alpha" | grep -o .); do
+        if ! echo "$fsq_sq1" | grep -q "$fsq_i"; then
+            fsq_sq1="$fsq_sq1$fsq_i"
+        fi
+    done
+
+    # Build square 2 (lower left): key2 + remaining
+    fsq_sq2=""
+    fsq_key2=$(echo "$fsq_key2" | tr 'a-z' 'A-Z' | tr 'J' 'I' | tr -cd 'A-Z')
+    for fsq_i in $(echo "$fsq_key2" | grep -o .); do
+        if ! echo "$fsq_sq2" | grep -q "$fsq_i"; then
+            fsq_sq2="$fsq_sq2$fsq_i"
+        fi
+    done
+    for fsq_i in $(echo "$fsq_alpha" | grep -o .); do
+        if ! echo "$fsq_sq2" | grep -q "$fsq_i"; then
+            fsq_sq2="$fsq_sq2$fsq_i"
+        fi
+    done
+
+    # Normalize text: uppercase, J->I, remove non-alpha, pad if odd
+    fsq_text=$(echo "$fsq_text" | tr 'a-z' 'A-Z' | tr 'J' 'I' | tr -cd 'A-Z')
+    if [ $(( ${#fsq_text} % 2 )) -ne 0 ]; then
+        fsq_text="${fsq_text}X"
+    fi
+
+    # Process digraphs
+    fsq_i=1
+    while [ $fsq_i -le ${#fsq_text} ]; do
+        fsq_char1=$(echo "$fsq_text" | cut -c $fsq_i)
+        fsq_char2=$(echo "$fsq_text" | cut -c $((fsq_i + 1)))
+
+        # Find positions in standard alphabet
+        fsq_pos1=$(expr index "$fsq_alpha" "$fsq_char1")
+        fsq_pos2=$(expr index "$fsq_alpha" "$fsq_char2")
+
+        fsq_row1=$(( (fsq_pos1 - 1) / 5 ))
+        fsq_col1=$(( (fsq_pos1 - 1) % 5 ))
+        fsq_row2=$(( (fsq_pos2 - 1) / 5 ))
+        fsq_col2=$(( (fsq_pos2 - 1) % 5 ))
+
+        if [ "$fsq_mode" = "encrypt" ]; then
+            # Encrypt: row1/col2 from sq1, row2/col1 from sq2
+            fsq_result="$fsq_result$(echo "$fsq_sq1" | cut -c $((fsq_row1 * 5 + fsq_col2 + 1)))"
+            fsq_result="$fsq_result$(echo "$fsq_sq2" | cut -c $((fsq_row2 * 5 + fsq_col1 + 1)))"
+        else
+            # Decrypt: reverse the process
+            # Find char1 in sq1, char2 in sq2
+            fsq_pos1=$(expr index "$fsq_sq1" "$fsq_char1")
+            fsq_pos2=$(expr index "$fsq_sq2" "$fsq_char2")
+
+            fsq_row1=$(( (fsq_pos1 - 1) / 5 ))
+            fsq_col1=$(( (fsq_pos1 - 1) % 5 ))
+            fsq_row2=$(( (fsq_pos2 - 1) / 5 ))
+            fsq_col2=$(( (fsq_pos2 - 1) % 5 ))
+
+            # Map back to standard alphabet positions
+            fsq_result="$fsq_result$(echo "$fsq_alpha" | cut -c $((fsq_row1 * 5 + fsq_col2 + 1)))"
+            fsq_result="$fsq_result$(echo "$fsq_alpha" | cut -c $((fsq_row2 * 5 + fsq_col1 + 1)))"
+        fi
+
+        fsq_i=$((fsq_i + 2))
+    done
+
+    echo "$fsq_result"
+}
 
 
 # Main script logic
 usage() {
-    echo "Usage: $0 -c cipher -m mode -t text [-s shift] [-a a] [-b b] [-k key] [-q keysquare]"
-    echo "cipher: adfgvx, affine, atbash, beaufort, caesar, hill, nihilist, playfair, railfence, rot13, trithemius, or vigenere"
+    echo "Usage: $0 -c cipher -m mode -t text [-s shift] [-a a] [-b b] [-k key] [-2 key2] [-q keysquare]"
+    echo "cipher: adfgvx, affine, atbash, autokey, bacon, beaufort, bifid, caesar,"
+    echo "        columnar, foursquare, gronsfeld, hill, nihilist, playfair, polybius,"
+    echo "        porta, railfence, rot13, simple, substitution, trithemius, or vigenere"
     echo "mode: encrypt or decrypt"
     echo "text: text to be encrypted or decrypted"
     echo "shift: shift value for Caesar Cipher (default: 3)"
     echo "a: multiplier value for Affine Cipher (default: 5)"
     echo "b: additive value for Affine Cipher (default: 8)"
-    echo "key: key for Playfair, Vigenère, Railfence, ADFGVX, or Nihilist Ciphers"
+    echo "key: key for ciphers that use a single key"
+    echo "key2 (-2): second key for Four-Square Cipher"
     echo "keysquare: keysquare for ADFGVX Cipher"
     exit 1
 }
 
-while getopts ":c:m:t:s:a:b:k:q:" opt; do
+while getopts ":c:m:t:s:a:b:k:q:2:" opt; do
     case "$opt" in
         a) a="$OPTARG" ;;
         b) b="$OPTARG" ;;
         c) cipher="$OPTARG" ;;
         k) key="$OPTARG" ;;
         m) mode="$OPTARG" ;;
-        q) keysquare="$OPTARG" ;;  # Handle keysquare input
+        q) keysquare="$OPTARG" ;;
         s) shift="$OPTARG" ;;
         t) text="$OPTARG" ;;
+        2) key2="$OPTARG" ;;
         *) usage ;;
     esac
 done
@@ -934,19 +1542,29 @@ shift="${shift:-3}"
 a="${a:-5}"
 b="${b:-8}"
 key="${key:-KEY}"
+key2="${key2:-KEY}"
 
 # Dispatch cipher functions based on the provided cipher type
 case "$cipher" in
     adfgvx) adfgvx_cipher "$text" "$key" "$mode" "$keysquare" ;;
     affine) affine_cipher "$text" "$a" "$b" "$mode" ;;
     atbash) atbash "$text" ;;
+    autokey) autokey_cipher "$text" "$key" "$mode" ;;
+    bacon) bacon_cipher "$text" "$mode" ;;
     beaufort) beaufort_cipher "$text" "$key" "$mode" ;;
+    bifid) bifid_cipher "$text" "$key" "$mode" ;;
     caesar) caesar_cipher "$text" "$shift" "$mode" ;;
+    columnar) columnar_transposition_cipher "$text" "$key" "$mode" ;;
+    foursquare) foursquare_cipher "$text" "$key" "$key2" "$mode" ;;
+    gronsfeld) gronsfeld_cipher "$text" "$key" "$mode" ;;
     hill) hill_cipher "$text" "$key" "$mode" ;;
     nihilist) nihilist_cipher "$text" "$key" "$mode" ;;
     playfair) playfair_cipher "$text" "$key" "$mode" ;;
+    polybius) polybius_cipher "$text" "$key" "$mode" ;;
+    porta) porta_cipher "$text" "$key" "$mode" ;;
     railfence) railfence_cipher "$text" "$key" "$mode" ;;
     rot13) rot13 "$text" ;;
+    simple|substitution) simple_substitution_cipher "$text" "$key" "$mode" ;;
     trithemius) trithemius_cipher "$text" "$mode" ;;
     vigenere) vigenere_cipher "$text" "$key" "$mode" ;;
     *) usage ;;
