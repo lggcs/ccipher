@@ -240,12 +240,23 @@ get_params() {
             printf "${ESC}[?25h"
             read -r KEYREQ
             printf "${ESC}[?25l"
-            if [ -n "$KEYREQ" ]; then
-                PARAMS="-k $KEY -q $KEYREQ"
+            
+            # If empty, generate a random keysquare
+            if [ -z "$KEYREQ" ]; then
+                # Generate random keysquare: shuffle A-Z0-9
+                KEYREQ=$(printf '%s\n' {A..Z} {0..9} | shuf | tr -d '\n')
+                move_cursor 19 3
+                printf "${GREEN}Generated keysquare:${RESET}"
+                move_cursor 20 3
+                printf "  %s" "$KEYREQ"
+                move_cursor 21 3
+                printf "${DIM}Save this keysquare for decryption!${RESET}"
+                current_row=22
             else
-                PARAMS="-k $KEY"
+                current_row=19
             fi
-            current_row=20
+            
+            PARAMS="-k $KEY -q $KEYREQ"
             ;;
         railfence)
             RAILS=$(input_field "Number of rails" "3")
