@@ -654,21 +654,23 @@ get_params() {
             move_cursor 7 3
             printf "${WHITE}Matrix elements (space-separated numbers)${RESET}"
             move_cursor 8 3
-            printf "${DIM}2x2 matrix: 4 numbers  (e.g., 3 2 5 7)${RESET}"
+            printf "${DIM}2x2 matrix: 4 numbers${RESET}"
             move_cursor 9 3
-            printf "${DIM}3x3 matrix: 9 numbers (e.g., 6 24 1 13 16 10 20 17 15)${RESET}"
+            printf "${DIM}Example: 3 2 5 7 (determinant = 11, valid)${RESET}"
             move_cursor 10 3
             printf "${YELLOW}Requirement: determinant must be coprime to 26${RESET}"
             move_cursor 11 3
             printf "${DIM}Valid determinants: 1,3,5,7,9,11,15,17,19,21,23,25${RESET}"
             move_cursor 12 3
+            printf "${DIM}Common error: determinant 0 or even numbers invalid${RESET}"
+            move_cursor 13 3
             printf "${WHITE}Enter matrix elements:${RESET} "
             printf "${ESC}[?25h"
             read -r KEY
             printf "${ESC}[?25l"
             [ -z "$KEY" ] && KEY="3 2 5 7"
             PARAMS="-k $KEY"
-            current_row=14
+            current_row=15
             ;;
         vic)
             # VIC cipher needs individual prompts for each parameter
