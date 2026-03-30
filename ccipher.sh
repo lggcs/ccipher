@@ -1501,31 +1501,967 @@ foursquare_cipher() {
     echo "$fsq_result"
 }
 
+# VIC Cipher - complex Soviet hand cipher
+# Helper: digit subtraction without borrow (each position independently)
+vic_digit_subtract() {
+    vds_a="$1"
+    vds_b="$2"
+    vds_result=""
+    vds_i=""
+    for vds_i in 1 2 3 4 5; do
+        vds_d1=$(echo "$vds_a" | cut -c $vds_i)
+        vds_d2=$(echo "$vds_b" | cut -c $vds_i)
+        vds_diff=$((vds_d1 - vds_d2))
+        if [ $vds_diff -lt 0 ]; then
+            vds_diff=$((vds_diff + 10))
+        fi
+        vds_result="$vds_result$vds_diff"
+    done
+    echo "$vds_result"
+}
+
+# Helper: digit addition without carry
+vic_digit_add() {
+    vda_a="$1"
+    vda_b="$2"
+    vda_result=""
+    vda_i=""
+    for vda_i in 1 2 3 4 5 6 7 8 9 10; do
+        vda_d1=$(echo "$vda_a" | cut -c $vda_i)
+        vda_d2=$(echo "$vda_b" | cut -c $vda_i)
+        vda_sum=$((vda_d1 + vda_d2))
+        vda_result="$vda_result$((vda_sum % 10))"
+    done
+    echo "$vda_result"
+}
+
+# Helper: chain addition - expand 5 or 10 digits to produce more
+vic_chain_add() {
+    vca_digits="$1"
+    vca_count="$2"
+    vca_result="$vca_digits"
+    
+    # Chain addition: add last two digits mod 10 to generate new digit
+    # If input is less than 2 digits, just repeat the last digit
+    while [ ${#vca_result} -lt $vca_count ]; do
+        vca_len=${#vca_result}
+        if [ $vca_len -ge 2 ]; then
+            vca_d1=$(echo "$vca_result" | cut -c $((vca_len - 1)))
+            vca_d2=$(echo "$vca_result" | cut -c $vca_len)
+        else
+            vca_d1=$(echo "$vca_result" | cut -c $vca_len)
+            vca_d2="$vca_d1"
+        fi
+        vca_new=$(((vca_d1 + vca_d2) % 10))
+        vca_result="$vca_result$vca_new"
+    done
+    
+    echo "$vca_result"
+}
+
+# Helper: keyphrase to 10 digits - assign numbers 1-0 based on alphabetical order
+vic_keyphrase_to_digits() {
+    vkd_phrase="$1"
+    vkd_result=""
+    vkd_pos=1
+    vkd_i=""
+    vkd_j=""
+    vkd_char=""
+    vkd_order=""
+    vkd_count=""
+    
+    # Get first 10 letters, uppercase
+    vkd_phrase=$(echo "$vkd_phrase" | tr 'a-z' 'A-Z' | tr -cd 'A-Z' | cut -c -10)
+    
+    # For each position 1-9,0 assign digit based on character's alphabetical rank
+    vkd_i=1
+    while [ $vkd_i -le 10 ]; do
+        vkd_char=$(echo "$vkd_phrase" | cut -c $vkd_i)
+        # Count how many chars come before this one + how many equal before this position
+        vkd_order=1
+        vkd_count=0
+        vkd_j=1
+        while [ $vkd_j -le 10 ]; do
+            vkd_cj=$(echo "$vkd_phrase" | cut -c $vkd_j)
+            if [ "$vkd_cj" \< "$vkd_char" ]; then
+                vkd_order=$((vkd_order + 1))
+            elif [ "$vkd_cj" = "$vkd_char" ] && [ $vkd_j -lt $vkd_i ]; then
+                vkd_count=$((vkd_count + 1))
+            fi
+            vkd_j=$((vkd_j + 1))
+        done
+        vkd_digit=$((vkd_order + vkd_count))
+        if [ $vkd_digit -eq 10 ]; then
+            vkd_digit=0
+        fi
+        vkd_result="$vkd_result$vkd_digit"
+        vkd_i=$((vkd_i + 1))
+    done
+    echo "$vkd_result"
+}
+
+# Helper: sequential substitution using keyphrase digits
+vic_sequential_subst() {
+    vss_digits="$1"
+    vss_keyphrase="$2"
+    vss_result=""
+    vss_i=""
+    vss_d1=""
+    vss_d2=""
+    
+    # Get second 10 letters for substitution key
+    vss_keyphrase=$(echo "$vss_keyphrase" | tr 'a-z' 'A-Z' | tr -cd 'A-Z')
+    vss_key2=$(echo "$vss_keyphrase" | cut -c 11-20)
+    vss_key2_digits=$(vic_keyphrase_to_digits "$vss_key2")
+    
+    for vss_i in 1 2 3 4 5 6 7 8 9 10; do
+        vss_d1=$(echo "$vss_digits" | cut -c $vss_i)
+        vss_d2=$(echo "$vss_key2_digits" | cut -c $vss_i)
+        vss_sum=$((vss_d1 + vss_d2))
+        vss_result="$vss_result$((vss_sum % 10))"
+    done
+    echo "$vss_result"
+}
+
+# Helper: create permutation from 10 digits
+vic_make_permutation() {
+    vmp_digits="$1"
+    vmp_result=""
+    vmp_i=""
+    vmp_j=""
+    vmp_rank=""
+    
+    # Convert to permutation: order positions by their values
+    for vmp_i in 1 2 3 4 5 6 7 8 9 10; do
+        # Find position where value is vmp_i (or vmp_i==10 means 0)
+        if [ $vmp_i -eq 10 ]; then
+            vmp_target=0
+        else
+            vmp_target=$vmp_i
+        fi
+        vmp_j=1
+        while [ $vmp_j -le 10 ]; do
+            vmp_d=$(echo "$vmp_digits" | cut -c $vmp_j)
+            if [ "$vmp_d" = "$vmp_target" ]; then
+                vmp_result="$vmp_result$vmp_j"
+                break
+            fi
+            vmp_j=$((vmp_j + 1))
+        done
+    done
+    echo "$vmp_result"
+}
+
+# Helper: create straddling checkerboard row permutation from digits
+vic_checkerboard_perm() {
+    vcp_digits="$1"
+    vcp_result=""
+    vcp_count=""
+    vcp_sorted=""
+    vcp_i=""
+    vcp_j=""
+    
+    # Sort digits and track positions for 1-9,0
+    for vcp_target in 1 2 3 4 5 6 7 8 9 0; do
+        vcp_count=0
+        for vcp_i in $(echo "$vcp_digits" | fold -w1); do
+            if [ "$vcp_i" -eq "$vcp_target" ] 2>/dev/null || [ "$vcp_i" = "$vcp_target" ]; then
+                vcp_count=$((vcp_count + 1))
+            fi
+        done
+        # Position in sequence
+        vcp_pos=""
+        vcp_j=1
+        for vcp_i in $(echo "$vcp_digits" | fold -w1); do
+            if [ "$vcp_i" -eq "$vcp_target" ] 2>/dev/null || [ "$vcp_i" = "$vcp_target" ]; then
+                vcp_count=$((vcp_count - 1))
+                if [ $vcp_count -lt 0 ]; then
+                    vcp_pos=$vcp_j
+                    break
+                fi
+            fi
+            vcp_j=$((vcp_j + 1))
+        done
+        vcp_result="$vcp_result$vcp_pos"
+    done
+    echo "$vcp_result"
+}
+
+# Main VIC cipher function
+vic_cipher() {
+    vic_text="$1"
+    vic_keyphrase="$2"
+    vic_date="$3"
+    vic_personal="$4"
+    vic_indicator="$5"
+    vic_mode="$6"
+    vic_result=""
+    
+    # Normalize inputs
+    vic_keyphrase=$(echo "$vic_keyphrase" | tr 'a-z' 'A-Z' | tr -cd 'A-Z')
+    vic_text=$(echo "$vic_text" | tr 'a-z' 'A-Z' | tr -cd 'A-Z0-9 /.')
+    vic_date=$(echo "$vic_date" | tr -cd '0-9' | cut -c -6)
+    vic_personal=$(echo "$vic_personal" | tr -cd '0-9')
+    vic_indicator=$(echo "$vic_indicator" | tr -cd '0-9' | cut -c -5)
+    
+    # Validate
+    if [ ${#vic_keyphrase} -lt 20 ]; then
+        echo "Error: Keyphrase must be at least 20 letters" >&2
+        return 1
+    fi
+    if [ ${#vic_date} -ne 6 ]; then
+        echo "Error: Date must be 6 digits (e.g., 070476)" >&2
+        return 1
+    fi
+    if [ ${#vic_personal} -lt 1 ]; then
+        echo "Error: Personal number required" >&2
+        return 1
+    fi
+    if [ ${#vic_indicator} -ne 5 ]; then
+        echo "Error: Message indicator must be 5 digits" >&2
+        return 1
+    fi
+    
+    # Step 1: Subtract first 5 date digits from indicator
+    vic_date5=$(echo "$vic_date" | cut -c -5)
+    vic_diff=$(vic_digit_subtract "$vic_indicator" "$vic_date5")
+    
+    # Step 2: Keyphrase encoding - first 10 letters to digits
+    vic_key1=$(echo "$vic_keyphrase" | cut -c -10)
+    vic_key1_digits=$(vic_keyphrase_to_digits "$vic_key1")
+    
+    # Step 3: Chain addition to expand 5 to 10 digits
+    vic_expanded=$(vic_chain_add "$vic_diff" 10)
+    vic_expanded=$(echo "$vic_expanded" | cut -c -10)
+    
+    # Step 4: Add expanded to key1_digits
+    vic_sum=$(vic_digit_add "$vic_expanded" "$vic_key1_digits")
+    
+    # Step 5: Sequential substitution
+    vic_encoded=$(vic_sequential_subst "$vic_sum" "$vic_keyphrase")
+    
+    # Step 6: Generate 50 pseudorandom digits
+    vic_digits_50=$(vic_chain_add "$vic_encoded" 50)
+    
+    # Build straddling checkerboard from last 20 digits
+    vic_cb_digits=$(echo "$vic_digits_50" | cut -c 31-50)
+    
+    # Create checkerboard permutation
+    # First 10 digits determine which single-digit positions
+    # Standard high-frequency letters: A T O N E S I R (8 letters need 2 empty positions)
+    vic_cb_top=""
+    vic_cb_row1=""
+    vic_cb_row2=""
+    
+    # Create permutation for top row (digits 0-9 with positions)
+    # Use last 10 of the 20 digits for row labels
+    vic_last10=$(echo "$vic_cb_digits" | cut -c 11-20)
+    
+    # Get permutation positions for checking single-digit assignments
+    # Standard checkerboard layout - high freq letters at certain positions
+    vic_high_freq="AT ONE SIR"
+    
+    # Build checkerboard: find 2 empty positions (digits not used in top row)
+    # Top row assigns single digits to 8 high-frequency letters
+    # Use digits from cb_digits positions where digit < 8 for the 8 letters
+    vic_cb_perm=""
+    
+    # Permutation from first 10 of cb_digits - determines which digit gets each position 0-9
+    vic_first10=$(echo "$vic_cb_digits" | cut -c -10)
+    
+    # Sort to find order: position of smallest, second smallest, etc.
+    vic_perm=""
+    for vic_rank in 0 1 2 3 4 5 6 7 8 9; do
+        vic_pos=1
+        while [ $vic_pos -le 10 ]; do
+            vic_d=$(echo "$vic_first10" | cut -c $vic_pos)
+            if [ "$vic_d" = "$vic_rank" ]; then
+                vic_perm="$vic_perm$vic_pos"
+                break
+            fi
+            vic_pos=$((vic_pos + 1))
+        done
+    done
+    
+    # Top row: positions 0-9, assign letters to first 8 unique digit positions
+    # Historical VIC uses A S I N T O E R ("a sin to err")
+    # First 8 unique digits from the sequence become the single-digit positions
+    # Remaining 2 digits are the row labels (for two-digit encoding)
+    vic_found=""
+    vic_i=1
+    # Need to find 8 unique digits - may need to look beyond first 10
+    while [ ${#vic_found} -lt 8 ]; do
+        vic_d=$(echo "$vic_cb_digits" | cut -c $vic_i)
+        if ! echo "$vic_found" | grep -q "$vic_d"; then
+            vic_found="$vic_found$vic_d"
+        fi
+        vic_i=$((vic_i + 1))
+    done
+    
+    # vic_found has first 8 unique digits in order - these are single-digit positions
+    # Remaining 2 digits are row labels for 2-digit encoding
+    vic_all_digits="0123456789"
+    vic_row_labels=""
+    for vic_i in 0 1 2 3 4 5 6 7 8 9; do
+        if ! echo "$vic_found" | grep -q "$vic_i"; then
+            vic_row_labels="$vic_row_labels$vic_i"
+        fi
+    done
+    
+    # Transposition keys
+    # Find last two unequal digits from the 50
+    vic_last_digit=""
+    vic_second_last=""
+    vic_i=50
+    vic_last_digit=$(echo "$vic_digits_50" | cut -c 50)
+    vic_i=49
+    while [ $vic_i -ge 1 ]; do
+        vic_second_last=$(echo "$vic_digits_50" | cut -c $vic_i)
+        if [ "$vic_second_last" != "$vic_last_digit" ]; then
+            break
+        fi
+        vic_i=$((vic_i - 1))
+    done
+    
+    # Column counts for transposition
+    vic_personal_num=$(echo "$vic_personal" | cut -c 1)
+    vic_cols_1=$((vic_second_last + vic_personal_num))
+    vic_cols_2=$((vic_last_digit + vic_personal_num))
+    
+    if [ "$vic_mode" = "encrypt" ]; then
+        # Encrypt using VIC cipher
+        vic_result=$(vic_encrypt "$vic_text" "$vic_keyphrase" "$vic_date" "$vic_personal" "$vic_indicator" "$vic_found" "$vic_row_labels" "$vic_digits_50" "$vic_cols_1" "$vic_cols_2" "$vic_key1_digits")
+    else
+        # Decrypt
+        vic_result=$(vic_decrypt "$vic_text" "$vic_keyphrase" "$vic_date" "$vic_personal" "$vic_indicator" "$vic_found" "$vic_row_labels" "$vic_digits_50" "$vic_cols_1" "$vic_cols_2" "$vic_key1_digits")
+    fi
+    
+    echo "$vic_result"
+}
+
+# VIC encryption
+vic_encrypt() {
+    ve_text="$1"
+    ve_keyphrase="$2"
+    ve_date="$3"
+    ve_personal="$4"
+    ve_indicator="$5"
+    ve_cb_singles="$6"
+    ve_row_labels="$7"
+    ve_digits_50="$8"
+    ve_cols_1="$9"
+    ve_cols_2="${10}"
+    ve_key1_digits="${11}"
+    ve_result=""
+    ve_encoded=""
+    ve_i=""
+    ve_char=""
+    ve_pos=""
+
+    # Encode plaintext to digits using straddling checkerboard
+    # Historical VIC uses 8 high-frequency letters: A S I N T O E R ("a sin to err")
+    # + 2 extra slots for "full stop" (.) and "numbers shift" (#)
+    # Total 28 character slots: 26 letters + . + #
+    # cb_singles has 8 digits for A,S,I,N,T,O,E,R at positions matching their order
+    ve_high="ASINTOER"  # 8 high-frequency letters (historical: "a sin to err")
+    ve_remaining="BCDFGHJKLMPQUVWXYZ"  # 18 remaining letters (Q-Z minus high-freq)
+    
+    # Find positions of row labels in 0-9 sequence to determine which columns are "holes"
+    # The 8 positions NOT used by row_labels get single-digit letters
+    ve_hole1_digit=$(echo "$ve_row_labels" | cut -c 1)
+    ve_hole2_digit=$(echo "$ve_row_labels" | cut -c 2)
+
+    ve_i=1
+    while [ $ve_i -le ${#ve_text} ]; do
+        ve_char=$(echo "$ve_text" | cut -c $ve_i)
+
+        # Check if it's a digit (figure shift needed)
+        if echo "$ve_char" | grep -q '^[0-9]$'; then
+            # Figure shift encoding: row_label[1] + 0 starts, digits, row_label[1] + 0 ends
+            ve_fig_start=$(echo "$ve_row_labels" | cut -c 1)
+            # Start figure shift
+            ve_encoded="$ve_encoded${ve_fig_start}0"
+            # Output all consecutive digits
+            while [ $ve_i -le ${#ve_text} ]; do
+                ve_char=$(echo "$ve_text" | cut -c $ve_i)
+                if echo "$ve_char" | grep -q '^[0-9]$'; then
+                    ve_encoded="$ve_encoded$ve_char"
+                    ve_i=$((ve_i + 1))
+                else
+                    break
+                fi
+            done
+            # End figure shift
+            ve_encoded="$ve_encoded${ve_fig_start}0"
+            continue
+        fi
+
+        # Check for period (full stop)
+        if [ "$ve_char" = "." ]; then
+            # Period encoded as figure shift + period code
+            # For now, use row_label[2] + 0 (same as space, can be extended)
+            ve_d1=$(echo "$ve_row_labels" | cut -c 2)
+            ve_encoded="$ve_encoded$ve_d1"0
+            ve_i=$((ve_i + 1))
+            continue
+        fi
+
+        # Check for space
+        if [ "$ve_char" = " " ]; then
+            # Space uses column 0 in second row
+            ve_d1=$(echo "$ve_row_labels" | cut -c 2)
+            ve_encoded="$ve_encoded$ve_d1"0
+            ve_i=$((ve_i + 1))
+            continue
+        fi
+
+        # Check in single-digit high-frequency letters
+        ve_pos=0
+        for ve_j in $(seq 1 ${#ve_high}); do
+            if [ "$(echo "$ve_high" | cut -c $ve_j)" = "$ve_char" ]; then
+                ve_pos=$ve_j
+                break
+            fi
+        done
+
+        if [ $ve_pos -gt 0 ] && [ $ve_pos -le ${#ve_cb_singles} ]; then
+            # Single digit encoding - get digit at this position
+            ve_digit=$(echo "$ve_cb_singles" | cut -c $ve_pos)
+            ve_encoded="$ve_encoded$ve_digit"
+            ve_i=$((ve_i + 1))
+            continue
+        elif echo "ABCDEFGHIJKLMNOPQRSTUVWXYZ" | grep -q "$ve_char"; then
+            # Two digit encoding for other letters
+            # Find position in remaining alphabet (18 letters)
+            ve_pos2=0
+            for ve_j in $(seq 1 ${#ve_remaining}); do
+                if [ "$(echo "$ve_remaining" | cut -c $ve_j)" = "$ve_char" ]; then
+                    ve_pos2=$ve_j
+                    break
+                fi
+            done
+
+            if [ $ve_pos2 -gt 0 ]; then
+                if [ $ve_pos2 -le 9 ]; then
+                    ve_d1=$(echo "$ve_row_labels" | cut -c 1)
+                    ve_d2=$ve_pos2
+                else
+                    ve_d1=$(echo "$ve_row_labels" | cut -c 2)
+                    ve_d2=$((ve_pos2 - 9))
+                fi
+                ve_encoded="$ve_encoded$ve_d1$ve_d2"
+                ve_i=$((ve_i + 1))
+                continue
+            fi
+        fi
+        
+        # Default: advance if nothing matched
+        ve_i=$((ve_i + 1))
+    done
+
+    # Add nulls to make length divisible by 5
+    # Use a digit from the singles set (not row labels) to avoid ambiguity
+    # The first digit in ve_cb_singles is always safe for padding
+    ve_pad_digit=$(echo "$ve_cb_singles" | cut -c 1)
+    while [ $(( ${#ve_encoded} % 5 )) -ne 0 ]; do
+        ve_encoded="${ve_encoded}${ve_pad_digit}"
+    done
+    
+    # Historical VIC: message must be >= cols_1 + cols_2 for transposition security
+    # Add more padding if needed
+    ve_min_len=$((ve_cols_1 + ve_cols_2))
+    while [ ${#ve_encoded} -lt $ve_min_len ]; do
+        ve_encoded="${ve_encoded}${ve_pad_digit}"
+    done
+
+    # Transposition 1: use first ve_cols_1 digits as column key
+    # Generate column order by sorting on digit values
+    ve_key1=$(echo "$ve_digits_50" | cut -c -$ve_cols_1)
+    ve_trans1=$(vic_columnar_encrypt "$ve_encoded" "$ve_key1")
+
+    # Transposition 2
+    ve_key2_start=$((ve_cols_1 + 1))
+    ve_key2=$(echo "$ve_digits_50" | cut -c $ve_key2_start-$((ve_cols_1 + ve_cols_2)))
+    ve_trans2=$(vic_columnar_encrypt "$ve_trans1" "$ve_key2")
+
+    # Insert indicator into message at position based on last digit of date
+    ve_insert_pos=$(echo "$ve_date" | cut -c 6)
+    ve_len=${#ve_trans2}
+    if [ $ve_insert_pos -gt $ve_len ]; then
+        ve_insert_pos=$ve_len
+    fi
+    
+    # Insert indicator from end
+    ve_insert_from_start=$((ve_len - ve_insert_pos))
+    if [ $ve_insert_from_start -lt 0 ]; then
+        ve_insert_from_start=0
+    fi
+    
+    # Build result with indicator inserted
+    if [ $ve_insert_from_start -eq 0 ]; then
+        ve_result="$ve_indicator$ve_trans2"
+    else
+        ve_result=$(echo "$ve_trans2" | cut -c -$ve_insert_from_start)
+        ve_result="$ve_result$ve_indicator"
+        ve_tail=$((ve_insert_from_start + 1))
+        ve_result="$ve_result$(echo "$ve_trans2" | cut -c $ve_tail-)"
+    fi
+
+    # Format in groups of 5
+    ve_formatted=""
+    ve_i=1
+    while [ $ve_i -le ${#ve_result} ]; do
+        if [ $((ve_i % 5)) -eq 1 ] && [ $ve_i -gt 1 ]; then
+            ve_formatted="$ve_formatted "
+        fi
+        ve_formatted="$ve_formatted$(echo "$ve_result" | cut -c $ve_i)"
+        ve_i=$((ve_i + 1))
+    done
+
+    echo "$ve_formatted"
+}
+
+# VIC decryption
+vic_decrypt() {
+    vd_text="$1"
+    vd_keyphrase="$2"
+    vd_date="$3"
+    vd_personal="$4"
+    vd_indicator="$5"
+    vd_cb_singles="$6"
+    vd_row_labels="$7"
+    vd_digits_50="$8"
+    vd_cols_1="$9"
+    vd_cols_2="${10}"
+    vd_key1_digits="${11}"
+    vd_result=""
+    vd_digits=""
+    vd_i=""
+
+    # Remove spaces from input
+    vd_digits=$(echo "$vd_text" | tr -d ' ')
+
+    # Find and remove indicator - it's inserted at position X from end (where X is last digit of date)
+    # So there are X characters AFTER the indicator
+    vd_insert_pos=$(echo "$vd_date" | cut -c 6)
+    vd_len=${#vd_digits}
+    
+    # Calculate where the indicator is
+    # Indicator ends at position vd_len - vd_insert_pos
+    # Indicator is 5 chars, starts at vd_len - vd_insert_pos - 5 + 1
+    vd_indicator_start=$((vd_len - vd_insert_pos - 5 + 1))
+    if [ $vd_indicator_start -lt 1 ]; then
+        vd_indicator_start=1
+    fi
+    
+    vd_before_chars=$((vd_indicator_start - 1))
+    if [ $vd_before_chars -lt 0 ]; then
+        vd_before_chars=0
+    fi
+    
+    vd_after_start=$((vd_indicator_start + 5))
+
+    # Extract parts before and after indicator
+    if [ $vd_before_chars -gt 0 ]; then
+        vd_before=$(echo "$vd_digits" | cut -c -$vd_before_chars)
+    else
+        vd_before=""
+    fi
+    
+    if [ $vd_after_start -le $vd_len ]; then
+        vd_after=$(echo "$vd_digits" | cut -c $vd_after_start-)
+    else
+        vd_after=""
+    fi
+    
+    vd_digits="$vd_before$vd_after"
+
+    # Reverse transposition 2
+    vd_key2_start=$((vd_cols_1 + 1))
+    vd_key2=$(echo "$vd_digits_50" | cut -c $vd_key2_start-$((vd_cols_1 + vd_cols_2)))
+    vd_trans1=$(vic_columnar_decrypt "$vd_digits" "$vd_key2")
+
+    # Reverse transposition 1
+    vd_key1=$(echo "$vd_digits_50" | cut -c -$vd_cols_1)
+    vd_encoded=$(vic_columnar_decrypt "$vd_trans1" "$vd_key1")
+
+    # Decode using straddling checkerboard
+    # Historical VIC: 8 high-frequency letters A S I N T O E R ("a sin to err")
+    # 18 remaining letters in two rows
+    # Column 0 reserved: row 1 = figure shift, row 2 = space
+    vd_high="ASINTOER"
+    vd_remaining="BCDFGHJKLMPQUVWXYZ"
+    vd_i=1
+    vd_result=""
+    vd_fig_shift=0
+    vd_fig_digit=""
+    vd_row1_label=$(echo "$vd_row_labels" | cut -c 1)
+
+    while [ $vd_i -le ${#vd_encoded} ]; do
+        vd_d=$(echo "$vd_encoded" | cut -c $vd_i)
+
+        # Check for figure shift: row_label[1] + 0 starts/end figure mode
+        if [ "$vd_d" = "$vd_row1_label" ]; then
+            vd_next=$((vd_i + 1))
+            if [ $vd_next -le ${#vd_encoded} ]; then
+                vd_d2=$(echo "$vd_encoded" | cut -c $vd_next)
+                if [ "$vd_d2" = "0" ]; then
+                    # Figure shift marker
+                    if [ $vd_fig_shift -eq 0 ]; then
+                        # Start figure shift - next should be a digit
+                        vd_fig_shift=1
+                        vd_i=$((vd_i + 2))
+                        continue
+                    else
+                        # End figure shift
+                        vd_fig_shift=0
+                        vd_i=$((vd_i + 2))
+                        continue
+                    fi
+                fi
+            fi
+        fi
+
+        # If in figure shift mode, digit is literal digit
+        if [ $vd_fig_shift -eq 1 ]; then
+            vd_result="$vd_result$vd_d"
+            vd_i=$((vd_i + 1))
+            continue
+        fi
+
+        # Check if this is a row label (two-digit encoding)
+        vd_is_row=0
+        for vd_j in 1 2; do
+            if [ "$(echo "$vd_row_labels" | cut -c $vd_j)" = "$vd_d" ]; then
+                vd_is_row=$vd_j
+                break
+            fi
+        done
+
+        if [ $vd_is_row -gt 0 ]; then
+            # Two-digit encoding
+            vd_i=$((vd_i + 1))
+            vd_d2=$(echo "$vd_encoded" | cut -c $vd_i)
+
+            # Check for space: row_label[2] + 0
+            if [ $vd_is_row -eq 2 ] && [ "$vd_d2" = "0" ]; then
+                vd_result="$vd_result "
+                vd_i=$((vd_i + 1))
+                continue
+            fi
+
+            # Map column digit to letter position
+            vd_col=$vd_d2
+            if [ $vd_is_row -eq 1 ]; then
+                # First row label: columns 1-9 map to positions 1-9
+                vd_alpha_pos=$vd_col
+            else
+                # Second row label: columns 1-9 map to positions 10-18
+                vd_alpha_pos=$((vd_col + 9))
+            fi
+
+            vd_char=$(echo "$vd_remaining" | cut -c $vd_alpha_pos)
+            vd_result="$vd_result$vd_char"
+            vd_i=$((vd_i + 1))
+            continue
+        else
+            # Single digit encoding - find position in singles
+            vd_pos=0
+            for vd_j in $(seq 1 ${#vd_cb_singles}); do
+                if [ "$(echo "$vd_cb_singles" | cut -c $vd_j)" = "$vd_d" ]; then
+                    vd_pos=$vd_j
+                    break
+                fi
+            done
+
+            if [ $vd_pos -gt 0 ] && [ $vd_pos -le ${#vd_high} ]; then
+                vd_char=$(echo "$vd_high" | cut -c $vd_pos)
+                vd_result="$vd_result$vd_char"
+            else
+                # Digit not in singles - could be padding
+                :
+            fi
+        fi
+        vd_i=$((vd_i + 1))
+    done
+
+    # Remove trailing padding - first digit in singles is used for padding
+    # Find which letter the first single-digit maps to and strip trailing occurrences
+    vd_pad_digit=$(echo "$vd_cb_singles" | cut -c 1)
+    vd_pad_pos=0
+    for vd_j in $(seq 1 ${#vd_cb_singles}); do
+        if [ "$(echo "$vd_cb_singles" | cut -c $vd_j)" = "$vd_pad_digit" ]; then
+            vd_pad_pos=$vd_j
+            break
+        fi
+    done
+
+    if [ $vd_pad_pos -gt 0 ] && [ $vd_pad_pos -le ${#vd_high} ]; then
+        vd_pad_char=$(echo "$vd_high" | cut -c $vd_pad_pos)
+        # Remove trailing padding characters
+        while [ ${#vd_result} -gt 0 ]; do
+            vd_last=$(echo "$vd_result" | rev | cut -c 1)
+            if [ "$vd_last" = "$vd_pad_char" ]; then
+                vd_result=$(echo "$vd_result" | rev | cut -c 2- | rev)
+            else
+                break
+            fi
+        done
+    fi
+
+    echo "$vd_result"
+}
+
+# Columnar transposition for VIC (works with digit keys)
+vic_key_to_col_order() {
+    vkco_digits="$1"
+    vkco_result=""
+    vkco_pos=""
+
+    # Convert digit sequence to column order by sorting on digit values
+    for vkco_d in 0 1 2 3 4 5 6 7 8 9; do
+        vkco_pos=1
+        while [ $vkco_pos -le ${#vkco_digits} ]; do
+            if [ "$(echo "$vkco_digits" | cut -c $vkco_pos)" = "$vkco_d" ]; then
+                vkco_result="$vkco_result $vkco_pos"
+            fi
+            vkco_pos=$((vkco_pos + 1))
+        done
+    done
+
+    echo "$vkco_result"
+}
+
+vic_columnar_encrypt() {
+    vce_text="$1"
+    vce_key="$2"
+    vce_result=""
+    vce_col_order=""
+    vce_cols=${#vce_key}
+    vce_len=${#vce_text}
+    vce_rows=$((vce_len / vce_cols))
+    vce_extra=$((vce_len % vce_cols))
+
+    # Get column order from digit key
+    vce_col_order=$(vic_key_to_col_order "$vce_key")
+
+    # Read columns in order (handle uneven columns)
+    # Column col (1-indexed) contains elements at positions:
+    #   Row 0: col (row-major position)
+    #   Row 1: cols + col (if extra >= col)
+    # etc.
+    for vce_pos in $vce_col_order; do
+        vce_col=$((vce_pos - 1))  # 0-indexed
+        
+        # Number of elements in this column
+        if [ $vce_col -lt $vce_extra ]; then
+            vce_col_len=$((vce_rows + 1))
+        else
+            vce_col_len=$vce_rows
+        fi
+        
+        # Read element by element (not contiguous in plaintext)
+        vce_i=0
+        while [ $vce_i -lt $vce_col_len ]; do
+            # Position of element (row, col) in plaintext (1-indexed)
+            vce_plaintext_pos=$((vce_i * vce_cols + vce_col + 1))
+            vce_result="$vce_result$(echo "$vce_text" | cut -c $vce_plaintext_pos)"
+            vce_i=$((vce_i + 1))
+        done
+    done
+
+    echo "$vce_result"
+}
+
+# Columnar decrypt for VIC
+vic_columnar_decrypt() {
+    vcd_text="$1"
+    vcd_key="$2"
+    vcd_result=""
+    vcd_col_order=""
+    vcd_cols=${#vcd_key}
+    vcd_len=${#vcd_text}
+    vcd_rows=$((vcd_len / vcd_cols))
+    vcd_extra=$((vcd_len % vcd_cols))
+
+    # If there's extra, its a partial row
+    if [ $vcd_extra -gt 0 ]; then
+        vcd_rows=$((vcd_rows + 1))
+    fi
+
+    # Total plaintext length should match ciphertext length
+    # Columns 0 to extra-1 have vcd_rows elements (longer columns)
+    # Columns extra to cols-1 have vcd_rows-1 elements (shorter columns)
+    # When extra=0, ALL columns have exactly vcd_rows elements
+
+    # Get column order from digit key
+    vcd_col_order=$(vic_key_to_col_order "$vcd_key")
+
+    # Extract segments from ciphertext in order
+    vcd_idx=1
+    for vcd_pos in $vcd_col_order; do
+        vcd_col=$((vcd_pos - 1))  # 0-indexed
+
+        # Length depends on plaintext column position
+        # Columns 0..extra-1 are long (vcd_rows), columns extra..cols-1 are short (vcd_rows-1)
+        # When extra=0, no columns are long, all have vcd_rows-1 elements? NO!
+        # When extra=0, ALL columns have vcd_rows elements (no short columns)
+        if [ $vcd_extra -gt 0 ] && [ $vcd_col -lt $vcd_extra ]; then
+            vcd_col_len=$vcd_rows
+        elif [ $vcd_extra -eq 0 ]; then
+            vcd_col_len=$vcd_rows
+        else
+            vcd_col_len=$((vcd_rows - 1))
+        fi
+
+        if [ $vcd_col_len -gt 0 ]; then
+            eval "vcd_col_${vcd_pos}=\$(echo \"\$vcd_text\" | cut -c ${vcd_idx}-$((vcd_idx + vcd_col_len - 1)))"
+            vcd_idx=$((vcd_idx + vcd_col_len))
+        fi
+    done
+
+    # Reconstruct row by row
+    # Each row has vce_cols characters (except last row may be partial)
+    # Row i, column j has character: col_j[i+1]
+    
+    for vcd_row in $(seq 1 $vcd_rows); do
+        for vcd_col in $(seq 1 $vcd_cols); do
+            eval "vcd_seg=\"\$vcd_col_${vcd_col}\""
+            if [ -n "$vcd_seg" ] && [ $vcd_row -le ${#vcd_seg} ]; then
+                vcd_char=$(echo "$vcd_seg" | cut -c $vcd_row)
+                if [ -n "$vcd_char" ]; then
+                    vcd_result="$vcd_result$vcd_char"
+                fi
+            fi
+        done
+    done
+
+    echo "$vcd_result"
+}
+
+# Second transposition with triangular areas (simplified - standard columnar)
+vic_transposition2_encrypt() {
+    vt2_text="$1"
+    vt2_key="$2"
+    vt2_result=""
+    vt2_order=""
+    vt2_cols=${#vt2_key}
+    vt2_len=${#vt2_text}
+    vt2_rows=$((vt2_len / vt2_cols))
+    vt2_extra=$((vt2_len % vt2_cols))
+    vt2_idx=""
+    
+    # Get column order by sorting key digits
+    vt2_order=$(echo "$vt2_key" | fold -w1 | nl -nln | sort -k2 | awk '{print $1}')
+    
+    # Read columns in sorted order (accounting for uneven lengths)
+    for vt2_pos in $vt2_order; do
+        vt2_col=$((vt2_pos - 1))
+        if [ $vt2_col -lt $vt2_extra ]; then
+            vt2_col_len=$((vt2_rows + 1))
+        else
+            vt2_col_len=$vt2_rows
+        fi
+        
+        vt2_j=0
+        while [ $vt2_j -lt $vt2_col_len ]; do
+            if [ $vt2_col -lt $vt2_extra ]; then
+                vt2_idx=$((vt2_j * vt2_cols + vt2_col + 1))
+            else
+                vt2_idx=$((vt2_extra * (vt2_rows + 1) + (vt2_col - vt2_extra) * vt2_rows + vt2_j + 1))
+            fi
+            vt2_result="$vt2_result$(echo "$vt2_text" | cut -c $vt2_idx)"
+            vt2_j=$((vt2_j + 1))
+        done
+    done
+    
+    echo "$vt2_result"
+}
+
+# Second transposition decrypt
+vic_transposition2_decrypt() {
+    vt2d_text="$1"
+    vt2d_key="$2"
+    vt2d_result=""
+    vt2d_order=""
+    vt2d_cols=${#vt2d_key}
+    vt2d_len=${#vt2d_text}
+    vt2d_rows=$((vt2d_len / vt2d_cols))
+    vt2d_extra=$((vt2d_len % vt2d_cols))
+    
+    # Get column order by sorting key digits
+    vt2d_order=$(echo "$vt2d_key" | fold -w1 | nl -nln | sort -k2 | awk '{print $1}')
+    
+    # Calculate column lengths and extract columns
+    vt2d_idx=1
+    for vt2d_pos in $vt2d_order; do
+        vt2d_col=$((vt2d_pos - 1))
+        if [ $vt2d_col -lt $vt2d_extra ]; then
+            vt2d_col_len=$((vt2d_rows + 1))
+        else
+            vt2d_col_len=$vt2d_rows
+        fi
+        eval "vt2d_col_${vt2d_pos}=\$(echo \"\$vt2d_text\" | cut -c ${vt2d_idx}-$((vt2d_idx + vt2d_col_len - 1)))"
+        vt2d_idx=$((vt2d_idx + vt2d_col_len))
+    done
+    
+    # Reconstruct row by row
+    for vt2d_row in $(seq 0 $((vt2d_rows))); do
+        for vt2d_col in $(seq 1 $vt2d_cols); do
+            eval "vt2d_chars=\"\$vt2d_col_${vt2d_col}\""
+            vt2d_row_len=${#vt2d_chars}
+            if [ $vt2d_row -lt $vt2d_row_len ]; then
+                vt2d_char=$(echo "$vt2d_chars" | cut -c $((vt2d_row + 1)))
+                vt2d_result="$vt2d_result$vt2d_char"
+            fi
+        done
+    done
+    
+    echo "$vt2d_result"
+}
+
 
 # Main script logic
 usage() {
-    echo "Usage: $0 -c cipher -m mode -t text [-s shift] [-a a] [-b b] [-k key] [-2 key2] [-q keysquare]"
-    echo "cipher: adfgvx, affine, atbash, autokey, bacon, beaufort, bifid, caesar,"
-    echo "        columnar, foursquare, gronsfeld, hill, nihilist, playfair, polybius,"
-    echo "        porta, railfence, rot13, simple, substitution, trithemius, or vigenere"
+    echo "Usage: $0 -c cipher -m mode -t text [options]"
+    echo ""
+    echo "Ciphers: adfgvx, affine, atbash, autokey, bacon, beaufort, bifid, caesar,"
+    echo "         columnar, foursquare, gronsfeld, hill, nihilist, playfair, polybius,"
+    echo "         porta, railfence, rot13, simple, substitution, trithemius, vigenere, vic"
+    echo ""
     echo "mode: encrypt or decrypt"
     echo "text: text to be encrypted or decrypted"
-    echo "shift: shift value for Caesar Cipher (default: 3)"
-    echo "a: multiplier value for Affine Cipher (default: 5)"
-    echo "b: additive value for Affine Cipher (default: 8)"
-    echo "key: key for ciphers that use a single key"
-    echo "key2 (-2): second key for Four-Square Cipher"
-    echo "keysquare: keysquare for ADFGVX Cipher"
+    echo ""
+    echo "Options:"
+    echo "  -s shift    Caesar shift value (default: 3)"
+    echo "  -a a        Affine multiplier (default: 5)"
+    echo "  -b b        Affine additive (default: 8)"
+    echo "  -k key      Key for keyed ciphers (default: KEY)"
+    echo "  -2 key2     Second key for Four-Square cipher"
+    echo "  -q keysq    Keysquare for ADFGVX cipher"
+    echo ""
+    echo "VIC cipher options:"
+    echo "  -d date     6-digit date (e.g., 070476 for July 4, 1776)"
+    echo "  -p personal Personal number (1-2 digits)"
+    echo "  -i indicator 5-digit message indicator"
+    echo ""
+    echo "Examples:"
+    echo "  $0 -c caesar -m encrypt -t 'hello' -s 3"
+    echo "  $0 -c vigenere -m encrypt -t 'hello' -k 'KEY'"
+    echo "  $0 -c vic -m encrypt -t 'HELLO' -k 'SONG LYRICS HERE' -d 070476 -p 8 -i 77651"
     exit 1
 }
 
-while getopts ":c:m:t:s:a:b:k:q:2:" opt; do
+while getopts ":c:m:t:s:a:b:k:q:2:d:p:i:" opt; do
     case "$opt" in
         a) a="$OPTARG" ;;
         b) b="$OPTARG" ;;
         c) cipher="$OPTARG" ;;
+        d) vic_date="$OPTARG" ;;
+        i) vic_indicator="$OPTARG" ;;
         k) key="$OPTARG" ;;
         m) mode="$OPTARG" ;;
+        p) vic_personal="$OPTARG" ;;
         q) keysquare="$OPTARG" ;;
         s) shift="$OPTARG" ;;
         t) text="$OPTARG" ;;
@@ -1566,6 +2502,7 @@ case "$cipher" in
     rot13) rot13 "$text" ;;
     simple|substitution) simple_substitution_cipher "$text" "$key" "$mode" ;;
     trithemius) trithemius_cipher "$text" "$mode" ;;
+    vic) vic_cipher "$text" "$key" "$vic_date" "$vic_personal" "$vic_indicator" "$mode" ;;
     vigenere) vigenere_cipher "$text" "$key" "$mode" ;;
     *) usage ;;
 esac
