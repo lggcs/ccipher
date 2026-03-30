@@ -4,421 +4,440 @@
 
 # Function to perform Caesar Cipher encryption/decryption
 caesar_cipher() {
-    local text="$1"
-    local shift="$2"
-    local mode="$3"
-    local result=""
-    local char
-    local ascii
+    caesar_text="$1"
+    caesar_shift="$2"
+    caesar_mode="$3"
+    caesar_result=""
+    caesar_char=""
+    caesar_ascii=""
 
-    if [ "$shift" -lt 0 ] || [ "$shift" -ge 26 ]; then
+    if [ "$caesar_shift" -lt 0 ] || [ "$caesar_shift" -ge 26 ]; then
         echo "Error: Shift value must be between 0 and 25."
         return 1
     fi
 
-    if [ "$mode" = "decrypt" ]; then
-        shift=$((26 - shift))
+    if [ "$caesar_mode" = "decrypt" ]; then
+        caesar_shift=$((26 - caesar_shift))
     fi
 
-    while [ -n "$text" ]; do
-        char="${text%"${text#?}"}"
-        text="${text#?}"
-        ascii=$(printf "%d" "'$char")
+    while [ -n "$caesar_text" ]; do
+        caesar_char="${caesar_text%"${caesar_text#?}"}"
+        caesar_text="${caesar_text#?}"
+        caesar_ascii=$(printf "%d" "'$caesar_char")
 
-        if [ "$char" = " " ]; then
-            result="$result$char"
+        if [ "$caesar_char" = " " ]; then
+            caesar_result="$caesar_result$caesar_char"
         else
-            if [ "$ascii" -ge 65 ] && [ "$ascii" -le 90 ]; then
-                ascii=$(( (ascii - 65 + shift) % 26 + 65 ))
-            elif [ "$ascii" -ge 97 ] && [ "$ascii" -le 122 ]; then
-                ascii=$(( (ascii - 97 + shift) % 26 + 97 ))
+            if [ "$caesar_ascii" -ge 65 ] && [ "$caesar_ascii" -le 90 ]; then
+                caesar_ascii=$(( (caesar_ascii - 65 + caesar_shift) % 26 + 65 ))
+            elif [ "$caesar_ascii" -ge 97 ] && [ "$caesar_ascii" -le 122 ]; then
+                caesar_ascii=$(( (caesar_ascii - 97 + caesar_shift) % 26 + 97 ))
             fi
-            result="$result$(printf "\\$(printf "%o" $ascii)")"
+            caesar_result="$caesar_result$(printf "\\$(printf "%o" $caesar_ascii)")"
         fi
     done
 
-    echo "$result"
+    echo "$caesar_result"
 }
 
 # Function to perform Affine Cipher encryption/decryption
 affine_cipher() {
-    local text="$1"
-    local a="$2"
-    local b="$3"
-    local mode="$4"
-    local result=""
-    local char
-    local ascii
-    local inv_a=0
+    affine_text="$1"
+    affine_a="$2"
+    affine_b="$3"
+    affine_mode="$4"
+    affine_result=""
+    affine_char=""
+    affine_ascii=""
+    affine_inv_a=0
 
     # Check if a and b are within valid range
-    if [ "$a" -le 0 ] || [ "$a" -ge 26 ] || [ "$b" -lt 0 ] || [ "$b" -ge 26 ]; then
+    if [ "$affine_a" -le 0 ] || [ "$affine_a" -ge 26 ] || [ "$affine_b" -lt 0 ] || [ "$affine_b" -ge 26 ]; then
         echo "Error: 'a' must be between 1 and 25, 'b' must be between 0 and 25."
         return 1
     fi
 
-    if [ "$mode" = "decrypt" ]; then
-        inv_a=$(mod_inverse "$a" 26)
+    if [ "$affine_mode" = "decrypt" ]; then
+        affine_inv_a=$(mod_inverse "$affine_a" 26)
         if [ "$?" -ne 0 ]; then
             echo "Error: 'a' has no modular inverse."
             return 1
         fi
     fi
 
-    while [ -n "$text" ]; do
-        char="${text%"${text#?}"}"
-        text="${text#?}"
-        ascii=$(printf "%d" "'$char")
+    while [ -n "$affine_text" ]; do
+        affine_char="${affine_text%"${affine_text#?}"}"
+        affine_text="${affine_text#?}"
+        affine_ascii=$(printf "%d" "'$affine_char")
 
-        if [ "$char" = " " ]; then
-            result="$result$char"
+        if [ "$affine_char" = " " ]; then
+            affine_result="$affine_result$affine_char"
         else
-            if [ "$ascii" -ge 65 ] && [ "$ascii" -le 90 ]; then
-                if [ "$mode" = "encrypt" ]; then
-                    ascii=$(( (a * (ascii - 65) + b) % 26 + 65 ))
+            if [ "$affine_ascii" -ge 65 ] && [ "$affine_ascii" -le 90 ]; then
+                if [ "$affine_mode" = "encrypt" ]; then
+                    affine_ascii=$(( (affine_a * (affine_ascii - 65) + affine_b) % 26 + 65 ))
                 else
-                    ascii=$(( (inv_a * (ascii - 65 - b + 26)) % 26 + 65 ))
+                    affine_ascii=$(( (affine_inv_a * (affine_ascii - 65 - affine_b + 26)) % 26 + 65 ))
                 fi
-            elif [ "$ascii" -ge 97 ] && [ "$ascii" -le 122 ]; then
-                if [ "$mode" = "encrypt" ]; then
-                    ascii=$(( (a * (ascii - 97) + b) % 26 + 97 ))
+            elif [ "$affine_ascii" -ge 97 ] && [ "$affine_ascii" -le 122 ]; then
+                if [ "$affine_mode" = "encrypt" ]; then
+                    affine_ascii=$(( (affine_a * (affine_ascii - 97) + affine_b) % 26 + 97 ))
                 else
-                    ascii=$(( (inv_a * (ascii - 97 - b + 26)) % 26 + 97 ))
+                    affine_ascii=$(( (affine_inv_a * (affine_ascii - 97 - affine_b + 26)) % 26 + 97 ))
                 fi
             fi
-            result="$result$(printf "\\$(printf "%o" $ascii)")"
+            affine_result="$affine_result$(printf "\\$(printf "%o" $affine_ascii)")"
         fi
     done
 
-    echo "$result"
+    echo "$affine_result"
 }
 
 # Function to perform Rot13 encryption/decryption
 rot13() {
-    local text="$1"
-    local result=""
-    local char
-    local ascii
+    rot13_text="$1"
+    rot13_result=""
+    rot13_char=""
+    rot13_ascii=""
 
-    while [ -n "$text" ]; do
-        char="${text%"${text#?}"}"
-        text="${text#?}"
-        ascii=$(printf "%d" "'$char")
+    while [ -n "$rot13_text" ]; do
+        rot13_char="${rot13_text%"${rot13_text#?}"}"
+        rot13_text="${rot13_text#?}"
+        rot13_ascii=$(printf "%d" "'$rot13_char")
 
-        if [ "$char" = " " ]; then
-            result="$result$char"
+        if [ "$rot13_char" = " " ]; then
+            rot13_result="$rot13_result$rot13_char"
         else
-            if [ "$ascii" -ge 65 ] && [ "$ascii" -le 90 ]; then
-                ascii=$(( (ascii - 65 + 13) % 26 + 65 ))
-            elif [ "$ascii" -ge 97 ] && [ "$ascii" -le 122 ]; then
-                ascii=$(( (ascii - 97 + 13) % 26 + 97 ))
+            if [ "$rot13_ascii" -ge 65 ] && [ "$rot13_ascii" -le 90 ]; then
+                rot13_ascii=$(( (rot13_ascii - 65 + 13) % 26 + 65 ))
+            elif [ "$rot13_ascii" -ge 97 ] && [ "$rot13_ascii" -le 122 ]; then
+                rot13_ascii=$(( (rot13_ascii - 97 + 13) % 26 + 97 ))
             fi
-            result="$result$(printf "\\$(printf "%o" $ascii)")"
+            rot13_result="$rot13_result$(printf "\\$(printf "%o" $rot13_ascii)")"
         fi
     done
 
-    echo "$result"
+    echo "$rot13_result"
 }
 
 # Function to perform Atbash encryption/decryption
 atbash() {
-    local text="$1"
-    local result=""
-    local char
-    local ascii
+    atbash_text="$1"
+    atbash_result=""
+    atbash_char=""
+    atbash_ascii=""
 
-    while [ -n "$text" ]; do
-        char="${text%"${text#?}"}"
-        text="${text#?}"
-        ascii=$(printf "%d" "'$char")
+    while [ -n "$atbash_text" ]; do
+        atbash_char="${atbash_text%"${atbash_text#?}"}"
+        atbash_text="${atbash_text#?}"
+        atbash_ascii=$(printf "%d" "'$atbash_char")
 
-        if [ "$char" = " " ]; then
-            result="$result$char"
+        if [ "$atbash_char" = " " ]; then
+            atbash_result="$atbash_result$atbash_char"
         else
-            if [ "$ascii" -ge 65 ] && [ "$ascii" -le 90 ]; then
-                ascii=$(( 155 - ascii ))
-            elif [ "$ascii" -ge 97 ] && [ "$ascii" -le 122 ]; then
-                ascii=$(( 219 - ascii ))
+            if [ "$atbash_ascii" -ge 65 ] && [ "$atbash_ascii" -le 90 ]; then
+                atbash_ascii=$(( 155 - atbash_ascii ))
+            elif [ "$atbash_ascii" -ge 97 ] && [ "$atbash_ascii" -le 122 ]; then
+                atbash_ascii=$(( 219 - atbash_ascii ))
             fi
-            result="$result$(printf "\\$(printf "%o" $ascii)")"
+            atbash_result="$atbash_result$(printf "\\$(printf "%o" $atbash_ascii)")"
         fi
     done
 
-    echo "$result"
+    echo "$atbash_result"
 }
 
 # Function to calculate modular inverse
 mod_inverse() {
-    local a="$1"
-    local m="$2"
-    local t=0
-    local new_t=1
-    local r="$m"
-    local new_r="$a"
-    local quotient
-    local temp
+    modinv_a="$1"
+    modinv_m="$2"
+    modinv_t=0
+    modinv_new_t=1
+    modinv_r="$modinv_m"
+    modinv_new_r="$modinv_a"
+    modinv_quotient=""
+    modinv_temp=""
 
-    while [ "$new_r" -ne 0 ]; do
-        quotient=$(( r / new_r ))
-        temp=$new_t
-        new_t=$(( t - quotient * new_t ))
-        t="$temp"
-        temp=$new_r
-        new_r=$(( r - quotient * new_r ))
-        r="$temp"
+    while [ "$modinv_new_r" -ne 0 ]; do
+        modinv_quotient=$(( modinv_r / modinv_new_r ))
+        modinv_temp=$modinv_new_t
+        modinv_new_t=$(( modinv_t - modinv_quotient * modinv_new_t ))
+        modinv_t="$modinv_temp"
+        modinv_temp=$modinv_new_r
+        modinv_new_r=$(( modinv_r - modinv_quotient * modinv_new_r ))
+        modinv_r="$modinv_temp"
     done
 
-    if [ "$r" -gt 1 ]; then
+    if [ "$modinv_r" -gt 1 ]; then
         echo "No inverse"
         return 1
     fi
 
-    if [ "$t" -lt 0 ]; then
-        t=$(( t + m ))
+    if [ "$modinv_t" -lt 0 ]; then
+        modinv_t=$(( modinv_t + modinv_m ))
     fi
 
-    echo "$t"
+    echo "$modinv_t"
 }
 
 
 generate_playfair_matrix() {
-    local key=$(echo "$1" | tr 'a-z' 'A-Z' | tr 'J' 'I' | tr -d '[:space:]')
-    local alphabet="ABCDEFGHIKLMNOPQRSTUVWXYZ"
-    local matrix=""
-    local used=""
+    pf_key=$(echo "$1" | tr 'a-z' 'A-Z' | tr 'J' 'I' | tr -d '[:space:]')
+    pf_alphabet="ABCDEFGHIKLMNOPQRSTUVWXYZ"
+    pf_matrix=""
+    pf_used=""
 
-    for char in $(echo "$key" | grep -o .); do
-        if ! echo "$used" | grep -q "$char"; then
-            used="$used$char"
-            matrix="$matrix$char"
+    for pf_char in $(echo "$pf_key" | grep -o .); do
+        if ! echo "$pf_used" | grep -q "$pf_char"; then
+            pf_used="$pf_used$pf_char"
+            pf_matrix="$pf_matrix$pf_char"
         fi
     done
 
-    for char in $(echo "$alphabet" | grep -o .); do
-        if ! echo "$used" | grep -q "$char"; then
-            matrix="$matrix$char"
+    for pf_char in $(echo "$pf_alphabet" | grep -o .); do
+        if ! echo "$pf_used" | grep -q "$pf_char"; then
+            pf_matrix="$pf_matrix$pf_char"
         fi
     done
 
-    echo "$matrix"
+    echo "$pf_matrix"
 }
 
 prepare_playfair_text() {
-    local text=$(echo "$1" | tr -d '[:space:]' | tr 'a-z' 'A-Z' | tr 'J' 'I')
-    local prepared=""
-    local i
+    pf_text=$(echo "$1" | tr -d '[:space:]' | tr 'a-z' 'A-Z' | tr 'J' 'I')
+    pf_prepared=""
+    pf_char1=""
+    pf_char2=""
 
-    while [ -n "$text" ]; do
-        char1=$(echo "$text" | cut -c 1)
-        text=$(echo "$text" | cut -c 2-)
-        char2=$(echo "$text" | cut -c 1)
+    while [ -n "$pf_text" ]; do
+        pf_char1=$(echo "$pf_text" | cut -c 1)
+        pf_text=$(echo "$pf_text" | cut -c 2-)
+        pf_char2=$(echo "$pf_text" | cut -c 1)
 
-        if [ -z "$char2" ] || [ "$char1" = "$char2" ]; then
-            char2="X"
+        if [ -z "$pf_char2" ] || [ "$pf_char1" = "$pf_char2" ]; then
+            pf_char2="X"
         else
-            text=$(echo "$text" | cut -c 2-)
+            pf_text=$(echo "$pf_text" | cut -c 2-)
         fi
 
-        prepared="$prepared$char1$char2"
+        pf_prepared="$pf_prepared$pf_char1$pf_char2"
     done
 
-    if [ $((${#prepared} % 2)) -ne 0 ]; then
-        prepared="${prepared}X"
+    if [ $((${#pf_prepared} % 2)) -ne 0 ]; then
+        pf_prepared="${pf_prepared}X"
     fi
 
-    echo "$prepared"
+    echo "$pf_prepared"
 }
 
 playfair_cipher() {
-    local text=$(prepare_playfair_text "$1")
-    local key_matrix=$(generate_playfair_matrix "$2")
-    local mode="$3"
-    local result=""
-    local pos1 pos2 row1 col1 row2 col2 char1 char2 i
+    pf_text=$(prepare_playfair_text "$1")
+    pf_key_matrix=$(generate_playfair_matrix "$2")
+    pf_mode="$3"
+    pf_result=""
+    pf_pos1=""
+    pf_pos2=""
+    pf_row1=""
+    pf_col1=""
+    pf_row2=""
+    pf_col2=""
+    pf_char1=""
+    pf_char2=""
+    pf_i=""
+    pf_tmp=""
 
-    for i in $(seq 1 2 ${#text}); do
-        char1=$(echo "$text" | cut -c $i)
-        char2=$(echo "$text" | cut -c $((i+1)))
+    for pf_i in $(seq 1 2 ${#pf_text}); do
+        pf_char1=$(echo "$pf_text" | cut -c $pf_i)
+        pf_char2=$(echo "$pf_text" | cut -c $((pf_i+1)))
 
-        pos1=$(expr index "$key_matrix" "$char1")
-        pos2=$(expr index "$key_matrix" "$char2")
+        pf_pos1=$(expr index "$pf_key_matrix" "$pf_char1")
+        pf_pos2=$(expr index "$pf_key_matrix" "$pf_char2")
 
-        row1=$(( (pos1 - 1) / 5 ))
-        col1=$(( (pos1 - 1) % 5 ))
-        row2=$(( (pos2 - 1) / 5 ))
-        col2=$(( (pos2 - 1) % 5 ))
+        pf_row1=$(( (pf_pos1 - 1) / 5 ))
+        pf_col1=$(( (pf_pos1 - 1) % 5 ))
+        pf_row2=$(( (pf_pos2 - 1) / 5 ))
+        pf_col2=$(( (pf_pos2 - 1) % 5 ))
 
-        if [ "$row1" -eq "$row2" ]; then
-            if [ "$mode" = "encrypt" ]; then
-                col1=$(( (col1 + 1) % 5 ))
-                col2=$(( (col2 + 1) % 5 ))
+        if [ "$pf_row1" -eq "$pf_row2" ]; then
+            if [ "$pf_mode" = "encrypt" ]; then
+                pf_col1=$(( (pf_col1 + 1) % 5 ))
+                pf_col2=$(( (pf_col2 + 1) % 5 ))
             else
-                col1=$(( (col1 + 4) % 5 ))
-                col2=$(( (col2 + 4) % 5 ))
+                pf_col1=$(( (pf_col1 + 4) % 5 ))
+                pf_col2=$(( (pf_col2 + 4) % 5 ))
             fi
-        elif [ "$col1" -eq "$col2" ]; then
-            if [ "$mode" = "encrypt" ]; then
-                row1=$(( (row1 + 1) % 5 ))
-                row2=$(( (row2 + 1) % 5 ))
+        elif [ "$pf_col1" -eq "$pf_col2" ]; then
+            if [ "$pf_mode" = "encrypt" ]; then
+                pf_row1=$(( (pf_row1 + 1) % 5 ))
+                pf_row2=$(( (pf_row2 + 1) % 5 ))
             else
-                row1=$(( (row1 + 4) % 5 ))
-                row2=$(( (row2 + 4) % 5 ))
+                pf_row1=$(( (pf_row1 + 4) % 5 ))
+                pf_row2=$(( (pf_row2 + 4) % 5 ))
             fi
         else
-            tmp="$col1"
-            col1="$col2"
-            col2="$tmp"
+            pf_tmp="$pf_col1"
+            pf_col1="$pf_col2"
+            pf_col2="$pf_tmp"
         fi
 
-        result="$result$(echo "$key_matrix" | cut -c $((row1 * 5 + col1 + 1)))"
-        result="$result$(echo "$key_matrix" | cut -c $((row2 * 5 + col2 + 1)))"
+        pf_result="$pf_result$(echo "$pf_key_matrix" | cut -c $((pf_row1 * 5 + pf_col1 + 1)))"
+        pf_result="$pf_result$(echo "$pf_key_matrix" | cut -c $((pf_row2 * 5 + pf_col2 + 1)))"
     done
 
-    echo "$result"
+    echo "$pf_result"
 }
 
 # Function to generate the repeated key for Vigenère cipher
 generate_repeated_key() {
-    local text="$1"
-    local key="$2"
-    local repeated_key=""
-    local i
+    repkey_text="$1"
+    repkey_key="$2"
+    repkey_result=""
+    repkey_i=""
 
-    for i in $(seq 0 $((${#text} - 1))); do
-        repeated_key="$repeated_key$(echo "$key" | cut -c $((i % ${#key} + 1)))"
+    for repkey_i in $(seq 0 $((${#repkey_text} - 1))); do
+        repkey_result="$repkey_result$(echo "$repkey_key" | cut -c $((repkey_i % ${#repkey_key} + 1)))"
     done
 
-    echo "$repeated_key"
+    echo "$repkey_result"
 }
 
 # Function to encrypt/decrypt using Vigenère cipher
 vigenere_cipher() {
-    local text="$1"
-    local key="$2"
-    local mode="$3"
-    local repeated_key
-    local result=""
-    local char_text char_key
-    local ascii_text ascii_key shift
+    vig_text="$1"
+    vig_key="$2"
+    vig_mode="$3"
+    vig_repeated_key=""
+    vig_result=""
+    vig_char_text=""
+    vig_char_key=""
+    vig_ascii_text=""
+    vig_ascii_key=""
+    vig_shift=""
+    vig_i=""
 
-    text=$(echo "$text" | tr 'a-z' 'A-Z' | tr -d ' ')
-    key=$(echo "$key" | tr 'a-z' 'A-Z')
+    vig_text=$(echo "$vig_text" | tr 'a-z' 'A-Z' | tr -d ' ')
+    vig_key=$(echo "$vig_key" | tr 'a-z' 'A-Z')
 
-    repeated_key=$(generate_repeated_key "$text" "$key")
+    vig_repeated_key=$(generate_repeated_key "$vig_text" "$vig_key")
 
-    for i in $(seq 1 ${#text}); do
-        char_text=$(echo "$text" | cut -c $i)
-        char_key=$(echo "$repeated_key" | cut -c $i)
-        ascii_text=$(printf "%d" "'$char_text")
-        ascii_key=$(printf "%d" "'$char_key")
+    for vig_i in $(seq 1 ${#vig_text}); do
+        vig_char_text=$(echo "$vig_text" | cut -c $vig_i)
+        vig_char_key=$(echo "$vig_repeated_key" | cut -c $vig_i)
+        vig_ascii_text=$(printf "%d" "'$vig_char_text")
+        vig_ascii_key=$(printf "%d" "'$vig_char_key")
 
-        if [ "$mode" = "encrypt" ]; then
-            shift=$(( (ascii_text - 65 + ascii_key - 65) % 26 + 65 ))
+        if [ "$vig_mode" = "encrypt" ]; then
+            vig_shift=$(( (vig_ascii_text - 65 + vig_ascii_key - 65) % 26 + 65 ))
         else
-            shift=$(( (ascii_text - ascii_key + 26) % 26 + 65 ))
+            vig_shift=$(( (vig_ascii_text - vig_ascii_key + 26) % 26 + 65 ))
         fi
 
-        result="$result$(printf "\\$(printf "%o" $shift)")"
+        vig_result="$vig_result$(printf "\\$(printf "%o" $vig_shift)")"
     done
 
-    echo "$result"
+    echo "$vig_result"
 }
 
 # Function to encrypt/decrypt using Beaufort cipher
 beaufort_cipher() {
-    local text="$1"
-    local key="$2"
-    local repeated_key
-    local result=""
-    local char_text char_key
-    local ascii_text ascii_key shift
+    beau_text="$1"
+    beau_key="$2"
+    beau_repeated_key=""
+    beau_result=""
+    beau_char_text=""
+    beau_char_key=""
+    beau_ascii_text=""
+    beau_ascii_key=""
+    beau_shift=""
+    beau_i=""
 
-    text=$(echo "$text" | tr 'a-z' 'A-Z' | tr -d ' ')
-    key=$(echo "$key" | tr 'a-z' 'A-Z')
+    beau_text=$(echo "$beau_text" | tr 'a-z' 'A-Z' | tr -d ' ')
+    beau_key=$(echo "$beau_key" | tr 'a-z' 'A-Z')
 
-    repeated_key=$(generate_repeated_key "$text" "$key")
+    beau_repeated_key=$(generate_repeated_key "$beau_text" "$beau_key")
 
-    for i in $(seq 1 ${#text}); do
-        char_text=$(echo "$text" | cut -c $i)
-        char_key=$(echo "$repeated_key" | cut -c $i)
-        ascii_text=$(printf "%d" "'$char_text")
-        ascii_key=$(printf "%d" "'$char_key")
+    for beau_i in $(seq 1 ${#beau_text}); do
+        beau_char_text=$(echo "$beau_text" | cut -c $beau_i)
+        beau_char_key=$(echo "$beau_repeated_key" | cut -c $beau_i)
+        beau_ascii_text=$(printf "%d" "'$beau_char_text")
+        beau_ascii_key=$(printf "%d" "'$beau_char_key")
 
         # Calculate shift for Beaufort cipher (key - plaintext)
-        shift=$(( (ascii_key - ascii_text + 26) % 26 + 65 ))
+        beau_shift=$(( (beau_ascii_key - beau_ascii_text + 26) % 26 + 65 ))
 
-        result="$result$(printf "\\$(printf "%o" $shift)")"
+        beau_result="$beau_result$(printf "\\$(printf "%o" $beau_shift)")"
     done
 
-    echo "$result"
+    echo "$beau_result"
 }
 
 # Function to encrypt/decrypt using the Trithemius cipher
 trithemius_cipher() {
-    local text="$1"
-    local mode="$2"
-    local result=""
-    local char_text
-    local ascii_text shift
-    local i
+    trit_text="$1"
+    trit_mode="$2"
+    trit_result=""
+    trit_char_text=""
+    trit_ascii_text=""
+    trit_shift=""
+    trit_i=""
 
     # Prepare the input text: uppercase and remove spaces
-    text=$(echo "$text" | tr 'a-z' 'A-Z' | tr -d ' ')
+    trit_text=$(echo "$trit_text" | tr 'a-z' 'A-Z' | tr -d ' ')
 
-    for i in $(seq 1 ${#text}); do
-        char_text=$(echo "$text" | cut -c $i)
-        ascii_text=$(printf "%d" "'$char_text")
+    for trit_i in $(seq 1 ${#trit_text}); do
+        trit_char_text=$(echo "$trit_text" | cut -c $trit_i)
+        trit_ascii_text=$(printf "%d" "'$trit_char_text")
 
-        if [ "$mode" = "encrypt" ]; then
+        if [ "$trit_mode" = "encrypt" ]; then
             # Encrypt: Add the progressive key (i-1)
-            shift=$(( (ascii_text - 65 + (i - 1)) % 26 + 65 ))
+            trit_shift=$(( (trit_ascii_text - 65 + (trit_i - 1)) % 26 + 65 ))
         else
             # Decrypt: Subtract the progressive key (i-1)
-            shift=$(( (ascii_text - 65 - (i - 1) + 26) % 26 + 65 ))
+            trit_shift=$(( (trit_ascii_text - 65 - (trit_i - 1) + 26) % 26 + 65 ))
         fi
 
-        result="$result$(printf "\\$(printf "%o" $shift)")"
+        trit_result="$trit_result$(printf "\\$(printf "%o" $trit_shift)")"
     done
 
-    echo "$result"
+    echo "$trit_result"
 }
 
 
 railfence_cipher() {
-    text="$1"
-    key="$2"
-    mode="$3" # "encrypt" or "decrypt"
-    local result=""
+    rf_text="$1"
+    rf_key="$2"
+    rf_mode="$3" # "encrypt" or "decrypt"
+    rf_result=""
 
     # Check if the key is numeric
-    case "$key" in
+    case "$rf_key" in
         ''|*[!0-9]*) echo "Error: Key must be a numeric value."; return 1 ;;
     esac
 
     # Get the length of the text
-    len=${#text}
+    rf_len=${#rf_text}
 
     # Check if the key is less than 1
-    if [ "$key" -lt 1 ]; then
+    if [ "$rf_key" -lt 1 ]; then
         echo "Error: Key must be at least 1."
         return 1
     fi
 
     # Check if the key is greater than the length of the text
-    if [ "$key" -gt "$len" ]; then
-        echo "Error: Key must not exceed the length of the text ($len)."
+    if [ "$rf_key" -gt "$rf_len" ]; then
+        echo "Error: Key must not exceed the length of the text ($rf_len)."
         return 1
     fi
 
     # If key is 1, return the text as is
-    if [ "$key" -eq 1 ]; then
-        echo "$text"
+    if [ "$rf_key" -eq 1 ]; then
+        echo "$rf_text"
         return
     fi
 
-    if [ "$mode" = "encrypt" ]; then
+    if [ "$rf_mode" = "encrypt" ]; then
         # Encrypt the text
-        result=$(echo "$text" | awk -v key=$key '
+        rf_result=$(echo "$rf_text" | awk -v key=$rf_key '
         {
             len = length($0);
             rows = key;
@@ -450,9 +469,9 @@ railfence_cipher() {
             print result;
         }')
 
-    elif [ "$mode" = "decrypt" ]; then
-        # Decrypt the text (already fixed earlier)
-        result=$(echo "$text" | awk -v key=$key '
+    elif [ "$rf_mode" = "decrypt" ]; then
+        # Decrypt the text
+        rf_result=$(echo "$rf_text" | awk -v key=$rf_key '
         {
             len = length($0);
             rows = key;
@@ -508,100 +527,108 @@ railfence_cipher() {
         return 1
     fi
 
-    echo "$result"
+    echo "$rf_result"
 }
 
 nihilist_cipher() {
-    local text="$1"
-    local key="$2"
-    local mode="$3"
-    local square="ABCDEFGHIKLMNOPQRSTUVWXYZ" # Polybius square (I/J combined)
-    local result=""
-    local key_index=1
+    nih_text="$1"
+    nih_key="$2"
+    nih_mode="$3"
+    nih_square="ABCDEFGHIKLMNOPQRSTUVWXYZ" # Polybius square (I/J combined)
+    nih_result=""
+    nih_key_index=1
+    nih_num_text=""
+    nih_num_key=""
+    nih_char_text=""
+    nih_char_key=""
+    nih_cipher_value=""
+    nih_row=""
+    nih_col=""
+    nih_index=""
 
     # Prepare the key: uppercase, combine I/J
-    key=$(printf "%s" "$key" | tr 'a-z' 'A-Z' | tr 'J' 'I')
+    nih_key=$(printf "%s" "$nih_key" | tr 'a-z' 'A-Z' | tr 'J' 'I')
 
     # Prepare the ciphertext for decryption (no modification needed for numbers)
-    if [ "$mode" = "encrypt" ]; then
-        text=$(printf "%s" "$text" | tr 'a-z' 'A-Z' | tr 'J' 'I' | tr -d ' ')
+    if [ "$nih_mode" = "encrypt" ]; then
+        nih_text=$(printf "%s" "$nih_text" | tr 'a-z' 'A-Z' | tr 'J' 'I' | tr -d ' ')
     fi
 
-    while [ -n "$text" ]; do
+    while [ -n "$nih_text" ]; do
         # Extract the first block (characters for encryption or numbers for decryption)
-        if [ "$mode" = "encrypt" ]; then
-            char_text=${text%${text#?}}
-            text=${text#?}
+        if [ "$nih_mode" = "encrypt" ]; then
+            nih_char_text=${nih_text%${nih_text#?}}
+            nih_text=${nih_text#?}
         else
             # Extract numeric pairs (ciphertext)
-            char_text=${text%% *}
-            text=${text#"$char_text"}
-            text=$(printf "%s" "$text" | sed 's/^ *//') # Trim leading spaces
+            nih_char_text=${nih_text%% *}
+            nih_text=${nih_text#"$nih_char_text"}
+            nih_text=$(printf "%s" "$nih_text" | sed 's/^ *//') # Trim leading spaces
         fi
 
-        if [ "$mode" = "encrypt" ]; then
+        if [ "$nih_mode" = "encrypt" ]; then
             # Find the numeric coordinate of the plaintext character in the Polybius square
-            num_text=$(expr index "$square" "$char_text")
-            if [ $num_text -eq 0 ]; then
-                echo "Error: Character '$char_text' not found in Polybius square"
+            nih_num_text=$(expr index "$nih_square" "$nih_char_text")
+            if [ $nih_num_text -eq 0 ]; then
+                echo "Error: Character '$nih_char_text' not found in Polybius square"
                 return 1
             fi
-            num_text=$(( (num_text - 1) / 5 * 10 + (num_text - 1) % 5 + 11 ))
+            nih_num_text=$(( (nih_num_text - 1) / 5 * 10 + (nih_num_text - 1) % 5 + 11 ))
         else
             # Use numeric ciphertext directly during decryption
-            num_text=$char_text
+            nih_num_text=$nih_char_text
         fi
 
         # Get the corresponding key character
-        char_key=$(printf "%s" "$key" | cut -c "$key_index")
-        key_index=$(( (key_index % ${#key}) + 1 ))
+        nih_char_key=$(printf "%s" "$nih_key" | cut -c "$nih_key_index")
+        nih_key_index=$(( (nih_key_index % ${#nih_key}) + 1 ))
 
         # Find the numeric value for the key character in the Polybius square
-        num_key=$(expr index "$square" "$char_key")
-        if [ $num_key -eq 0 ]; then
-            echo "Error: Key character '$char_key' not found in Polybius square"
+        nih_num_key=$(expr index "$nih_square" "$nih_char_key")
+        if [ $nih_num_key -eq 0 ]; then
+            echo "Error: Key character '$nih_char_key' not found in Polybius square"
             return 1
         fi
-        num_key=$(( (num_key - 1) / 5 * 10 + (num_key - 1) % 5 + 11 ))
+        nih_num_key=$(( (nih_num_key - 1) / 5 * 10 + (nih_num_key - 1) % 5 + 11 ))
 
-        if [ "$mode" = "encrypt" ]; then
-            cipher_value=$((num_text + num_key))
-            result="$result$cipher_value "
+        if [ "$nih_mode" = "encrypt" ]; then
+            nih_cipher_value=$((nih_num_text + nih_num_key))
+            nih_result="$nih_result$nih_cipher_value "
         else
             # Decrypt: Adjust for negative values by adding 100 (mod 100 logic)
-            cipher_value=$((num_text - num_key))
-            if [ "$cipher_value" -lt 0 ]; then
-                cipher_value=$((cipher_value + 100))
+            nih_cipher_value=$((nih_num_text - nih_num_key))
+            if [ "$nih_cipher_value" -lt 0 ]; then
+                nih_cipher_value=$((nih_cipher_value + 100))
             fi
 
             # Validate that cipher value corresponds to a valid Polybius coordinate
-            row=$((cipher_value / 10 - 1))
-            col=$((cipher_value % 10 - 1))
-            index=$((row * 5 + col))
-            if [ $row -lt 0 ] || [ $col -lt 0 ] || [ $index -ge ${#square} ]; then
-                echo "Error: Decryption failed, invalid cipher value '$cipher_value'"
+            nih_row=$((nih_cipher_value / 10 - 1))
+            nih_col=$((nih_cipher_value % 10 - 1))
+            nih_index=$((nih_row * 5 + nih_col))
+            if [ $nih_row -lt 0 ] || [ $nih_col -lt 0 ] || [ $nih_index -ge ${#nih_square} ]; then
+                echo "Error: Decryption failed, invalid cipher value '$nih_cipher_value'"
                 return 1
             fi
 
             # Convert cipher value back to a character
-            result="$result$(printf "%s" "$square" | cut -c $((index + 1)))"
+            nih_result="$nih_result$(printf "%s" "$nih_square" | cut -c $((nih_index + 1)))"
         fi
     done
 
     # Output the result
-    printf "%s\n" "$result" | sed 's/ $//'
+    printf "%s\n" "$nih_result" | sed 's/ $//'
 }
 
 # Helper to find Greatest Common Divisor
 gcd() {
-    local a="$1"
-    local b="$2"
-    while [ "$b" -ne 0 ]; do
-        local temp=$b
-        b=$((a % b))
-        a=$temp
+    gcd_a="$1"
+    gcd_b="$2"
+    while [ "$gcd_b" -ne 0 ]; do
+        gcd_temp=$gcd_b
+        gcd_b=$((gcd_a % gcd_b))
+        gcd_a=$gcd_temp
     done
-    echo "$a"
+    echo "$gcd_a"
 }
 
 
@@ -609,128 +636,144 @@ gcd() {
 
 hill_cipher() {
     # Input: mode (encrypt/decrypt), key, text
-    text="$1"
-    key="$2"
-    mode="$3"
+    hill_text="$1"
+    hill_key="$2"
+    hill_mode="$3"
 
     # Extract key values
-    k1=$(echo "$key" | cut -d' ' -f1)
-    k2=$(echo "$key" | cut -d' ' -f2)
-    k3=$(echo "$key" | cut -d' ' -f3)
-    k4=$(echo "$key" | cut -d' ' -f4)
+    hill_k1=$(echo "$hill_key" | cut -d' ' -f1)
+    hill_k2=$(echo "$hill_key" | cut -d' ' -f2)
+    hill_k3=$(echo "$hill_key" | cut -d' ' -f3)
+    hill_k4=$(echo "$hill_key" | cut -d' ' -f4)
 
     # Validate the determinant of the key matrix
-    det=$((k1 * k4 - k2 * k3))
-    det=$((det % 26))
-    [ "$det" -lt 0 ] && det=$((det + 26))
+    hill_det=$((hill_k1 * hill_k4 - hill_k2 * hill_k3))
+    hill_det=$((hill_det % 26))
+    [ "$hill_det" -lt 0 ] && hill_det=$((hill_det + 26))
 
     # Check if the determinant is coprime with 26
-    gcd=$(gcd "$det" 26)  # Function to calculate the GCD
-    if [ "$gcd" -ne 1 ]; then
-        echo "Error: Invalid key. The determinant ($det) is not coprime with 26." >&2
+    hill_gcd=$(gcd "$hill_det" 26)  # Function to calculate the GCD
+    if [ "$hill_gcd" -ne 1 ]; then
+        echo "Error: Invalid key. The determinant ($hill_det) is not coprime with 26." >&2
         return 1
     fi
 
-    det_inv=$(mod_inverse "$det" 26)
-    if [ -z "$det_inv" ]; then
-        echo "Error: The determinant ($det) is not invertible modulo 26. Decryption is not possible with this key." >&2
+    hill_det_inv=$(mod_inverse "$hill_det" 26)
+    if [ -z "$hill_det_inv" ]; then
+        echo "Error: The determinant ($hill_det) is not invertible modulo 26. Decryption is not possible with this key." >&2
         return 1
     fi
 
     # Adjust key matrix for decryption
-    if [ "$mode" = "decrypt" ]; then
-        tmp_k1=$k1; tmp_k2=$k2; tmp_k3=$k3; tmp_k4=$k4
-        k1=$((det_inv * tmp_k4 % 26))
-        k2=$((-det_inv * tmp_k2 % 26))
-        k3=$((-det_inv * tmp_k3 % 26))
-        k4=$((det_inv * tmp_k1 % 26))
-        [ "$k1" -lt 0 ] && k1=$((k1 + 26))
-        [ "$k2" -lt 0 ] && k2=$((k2 + 26))
-        [ "$k3" -lt 0 ] && k3=$((k3 + 26))
-        [ "$k4" -lt 0 ] && k4=$((k4 + 26))
+    if [ "$hill_mode" = "decrypt" ]; then
+        hill_tmp_k1=$hill_k1; hill_tmp_k2=$hill_k2; hill_tmp_k3=$hill_k3; hill_tmp_k4=$hill_k4
+        hill_k1=$((hill_det_inv * hill_tmp_k4 % 26))
+        hill_k2=$((-hill_det_inv * hill_tmp_k2 % 26))
+        hill_k3=$((-hill_det_inv * hill_tmp_k3 % 26))
+        hill_k4=$((hill_det_inv * hill_tmp_k1 % 26))
+        [ "$hill_k1" -lt 0 ] && hill_k1=$((hill_k1 + 26))
+        [ "$hill_k2" -lt 0 ] && hill_k2=$((hill_k2 + 26))
+        [ "$hill_k3" -lt 0 ] && hill_k3=$((hill_k3 + 26))
+        [ "$hill_k4" -lt 0 ] && hill_k4=$((hill_k4 + 26))
     fi
 
     # Prepare text: Remove spaces and pad with 'X' if necessary
-    clean_text=$(echo "$text" | tr -d '[:space:]' | tr -cd '[:alpha:]' | tr '[:lower:]' '[:upper:]')
-    [ "$mode" = "encrypt" ] && [ $(( ${#clean_text} % 2 )) -ne 0 ] && clean_text="${clean_text}X"
+    hill_clean_text=$(echo "$hill_text" | tr -d '[:space:]' | tr -cd '[:alpha:]' | tr '[:lower:]' '[:upper:]')
+    [ "$hill_mode" = "encrypt" ] && [ $(( ${#hill_clean_text} % 2 )) -ne 0 ] && hill_clean_text="${hill_clean_text}X"
 
     # Initialize result
-    result=""
+    hill_result=""
 
     # Process text in pairs of characters
-    while [ -n "$clean_text" ]; do
-        char1=$(echo "$clean_text" | cut -c1)
-        char2=$(echo "$clean_text" | cut -c2)
+    while [ -n "$hill_clean_text" ]; do
+        hill_char1=$(echo "$hill_clean_text" | cut -c1)
+        hill_char2=$(echo "$hill_clean_text" | cut -c2)
 
-        t1=$(( $(printf '%d' "'$char1") - 65 ))
-        t2=$(( $(printf '%d' "'$char2") - 65 ))
+        hill_t1=$(( $(printf '%d' "'$hill_char1") - 65 ))
+        hill_t2=$(( $(printf '%d' "'$hill_char2") - 65 ))
 
-        res1=$(( (k1 * t1 + k2 * t2) % 26 ))
-        res2=$(( (k3 * t1 + k4 * t2) % 26 ))
+        hill_res1=$(( (hill_k1 * hill_t1 + hill_k2 * hill_t2) % 26 ))
+        hill_res2=$(( (hill_k3 * hill_t1 + hill_k4 * hill_t2) % 26 ))
 
-        [ "$res1" -lt 0 ] && res1=$((res1 + 26))
-        [ "$res2" -lt 0 ] && res2=$((res2 + 26))
+        [ "$hill_res1" -lt 0 ] && hill_res1=$((hill_res1 + 26))
+        [ "$hill_res2" -lt 0 ] && hill_res2=$((hill_res2 + 26))
 
-        e1=$(printf "\\$(printf '%03o' $((res1 + 65)))")
-        e2=$(printf "\\$(printf '%03o' $((res2 + 65)))")
+        hill_e1=$(printf "\\$(printf '%03o' $((hill_res1 + 65)))")
+        hill_e2=$(printf "\\$(printf '%03o' $((hill_res2 + 65)))")
 
-        result="$result$e1$e2"
-        clean_text=$(echo "$clean_text" | cut -c3-)
+        hill_result="$hill_result$hill_e1$hill_e2"
+        hill_clean_text=$(echo "$hill_clean_text" | cut -c3-)
     done
 
-    echo "$result"
+    echo "$hill_result"
 }
 
 
 generate_and_print_keysquare() {
     # Create the characters A-Z and 0-9
-    chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    adfgvx_chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
     # Shuffle the characters using `awk` to ensure randomness
-    keysquare=$(printf "%s\n" $(echo "$chars" | fold -w1 | awk 'BEGIN {srand()} {a[NR]=$1}
+    adfgvx_temp_keysquare=$(printf "%s\n" $(echo "$adfgvx_chars" | fold -w1 | awk 'BEGIN {srand()} {a[NR]=$1}
         END {for (i=NR; i>=1; i--) {j=int(rand()*i)+1; t=a[i]; a[i]=a[j]; a[j]=t}
         for (i=1; i<=NR; i++) printf("%s", a[i])}'))
 
     # Print the key square as a single line
-    if [ "$mode" = "encrypt" ]; then
-    printf "Here's a generated ADFGVX Key Square: %s\n" "$keysquare"
+    if [ "$adfgvx_mode" = "encrypt" ]; then
+    printf "Here's a generated ADFGVX Key Square: %s\n" "$adfgvx_temp_keysquare"
     fi
 }
 
 adfgvx_cipher() {
-    text="$1"
-    key="$2"
-    mode="$3"
-    keysquare="$4"
+    adfgvx_text="$1"
+    adfgvx_key="$2"
+    adfgvx_mode="$3"
+    adfgvx_keysquare="$4"
+    adfgvx_clean_text=""
+    adfgvx_result=""
+    adfgvx_length=""
+    adfgvx_i=""
+    adfgvx_char=""
+    adfgvx_pos=""
+    adfgvx_row=""
+    adfgvx_col=""
+    adfgvx_num_cols=""
+    adfgvx_column_order=""
+    adfgvx_transposed_result=""
+    adfgvx_reverse_result=""
+    adfgvx_num_rows=""
+    adfgvx_pair=""
+    adfgvx_symbol1=""
+    adfgvx_symbol2=""
+    adfgvx_index=""
+    adfgvx_mapped_char=""
+    adfgvx_symbols="ADFGVX"
 
     # Clean and validate keysquare
-    keysquare=$(echo "$keysquare" | tr -d '[:space:]' | tr -d '[:cntrl:]' | tr 'a-z' 'A-Z')
-    if [ "$(echo -n "$keysquare" | wc -c)" -ne 36 ]; then
+    adfgvx_keysquare=$(echo "$adfgvx_keysquare" | tr -d '[:space:]' | tr -d '[:cntrl:]' | tr 'a-z' 'A-Z')
+    if [ "$(echo -n "$adfgvx_keysquare" | wc -c)" -ne 36 ]; then
         echo "Error: Keysquare must be exactly 36 characters long." >&2
         generate_and_print_keysquare
         return 1
     fi
 
     # Clean and prepare input text
-    clean_text=$(echo "$text" | tr -d '[:space:]' | tr -d '[:cntrl:]' | tr 'a-z' 'A-Z')
+    adfgvx_clean_text=$(echo "$adfgvx_text" | tr -d '[:space:]' | tr -d '[:cntrl:]' | tr 'a-z' 'A-Z')
 
     # Normalize key
-    key=$(echo "$key" | tr 'a-z' 'A-Z')  # Consistent normalization
+    adfgvx_key=$(echo "$adfgvx_key" | tr 'a-z' 'A-Z')  # Consistent normalization
 
-    # Symbols used for the ADFGVX cipher grid
-    symbols="ADFGVX"
-
-    if [ "$mode" = "encrypt" ]; then
+    if [ "$adfgvx_mode" = "encrypt" ]; then
         # Encryption Logic
-        result=""
-        length=$(echo -n "$clean_text" | wc -c)
+        adfgvx_result=""
+        adfgvx_length=$(echo -n "$adfgvx_clean_text" | wc -c)
 
-        i=1
-        while [ $i -le "$length" ]; do
-            char=$(echo "$clean_text" | cut -c $i)
-            pos=$(awk -v c="$char" '
+        adfgvx_i=1
+        while [ $adfgvx_i -le "$adfgvx_length" ]; do
+            adfgvx_char=$(echo "$adfgvx_clean_text" | cut -c $adfgvx_i)
+            adfgvx_pos=$(awk -v c="$adfgvx_char" '
                 BEGIN {
-                    keysquare = "'"$keysquare"'"
+                    keysquare = "'"$adfgvx_keysquare"'"
                     for (i = 1; i <= length(keysquare); i++) {
                         if (substr(keysquare, i, 1) == c) {
                             row = int((i - 1) / 6)
@@ -740,42 +783,39 @@ adfgvx_cipher() {
                         }
                     }
                 }')
-            row=$(echo "$pos" | cut -d' ' -f1)
-            col=$(echo "$pos" | cut -d' ' -f2)
+            adfgvx_row=$(echo "$adfgvx_pos" | cut -d' ' -f1)
+            adfgvx_col=$(echo "$adfgvx_pos" | cut -d' ' -f2)
 
-            result="${result}$(echo "$symbols" | cut -c $((row + 1)))$(echo "$symbols" | cut -c $((col + 1)))"
-            i=$((i + 1))
+            adfgvx_result="${adfgvx_result}$(echo "$adfgvx_symbols" | cut -c $((adfgvx_row + 1)))$(echo "$adfgvx_symbols" | cut -c $((adfgvx_col + 1)))"
+            adfgvx_i=$((adfgvx_i + 1))
         done
 
         # Transposition Phase
-        num_cols=$(echo -n "$key" | wc -c)
-        column_order=$(echo "$key" | fold -w1 | nl -nln | sort -k2 | awk '{print $1}')
+        adfgvx_num_cols=$(echo -n "$adfgvx_key" | wc -c)
+        adfgvx_column_order=$(echo "$adfgvx_key" | fold -w1 | nl -nln | sort -k2 | awk '{print $1}')
 
-        transposed_result=""
-        for col in $column_order; do
-            pos=$((col - 1))
-            while [ $pos -lt ${#result} ]; do
-                transposed_result="${transposed_result}$(echo "$result" | cut -c $((pos + 1)))"
-                pos=$((pos + num_cols))
+        adfgvx_transposed_result=""
+        for adfgvx_col in $adfgvx_column_order; do
+            adfgvx_pos=$((adfgvx_col - 1))
+            while [ $adfgvx_pos -lt ${#adfgvx_result} ]; do
+                adfgvx_transposed_result="${adfgvx_transposed_result}$(echo "$adfgvx_result" | cut -c $((adfgvx_pos + 1)))"
+                adfgvx_pos=$((adfgvx_pos + adfgvx_num_cols))
             done
         done
 
-        echo "$transposed_result"
-elif [ "$mode" = "decrypt" ]; then
+        echo "$adfgvx_transposed_result"
+elif [ "$adfgvx_mode" = "decrypt" ]; then
     # Validate ciphertext length and calculate dimensions
-    length=$(printf "%s" "$clean_text" | wc -c)
+    adfgvx_length=$(printf "%s" "$adfgvx_clean_text" | wc -c)
 
-    num_cols=$(printf "%s" "$key" | wc -c)
-    num_rows=$(( (length + num_cols - 1) / num_cols ))
-
-    # Normalize key
-    key=$(echo "$key" | tr 'a-z' 'A-Z')
+    adfgvx_num_cols=$(printf "%s" "$adfgvx_key" | wc -c)
+    adfgvx_num_rows=$(( (adfgvx_length + adfgvx_num_cols - 1) / adfgvx_num_cols ))
 
     # Generate column order based on the key
-    column_order=$(printf "%s" "$key" | fold -w1 | nl -nln | sort -k2 | awk '{print $1}')
+    adfgvx_column_order=$(printf "%s" "$adfgvx_key" | fold -w1 | nl -nln | sort -k2 | awk '{print $1}')
 
     # Reverse transpose ciphertext using awk
-    reverse_result=$(printf "%s" "$clean_text" | awk -v order="$column_order" -v num_cols="$num_cols" -v text_length="$length" '
+    adfgvx_reverse_result=$(printf "%s" "$adfgvx_clean_text" | awk -v order="$adfgvx_column_order" -v num_cols="$adfgvx_num_cols" -v text_length="$adfgvx_length" '
     BEGIN {
         split(order, col_order, " ")
         column_index = 1
@@ -816,40 +856,39 @@ elif [ "$mode" = "decrypt" ]; then
 
 
     # Decode symbol pairs back to plaintext
-    symbols="ADFGVX"
-    result=""
-    i=1
-    while [ "$i" -le "$length" ]; do
-        pair=$(printf "%s" "$reverse_result" | cut -c "$i"-"$((i + 1))")
-        symbol1=$(printf "%s" "$pair" | cut -c1)
-        symbol2=$(printf "%s" "$pair" | cut -c2)
+    adfgvx_result=""
+    adfgvx_i=1
+    while [ "$adfgvx_i" -le "$adfgvx_length" ]; do
+        adfgvx_pair=$(printf "%s" "$adfgvx_reverse_result" | cut -c "$adfgvx_i"-"$((adfgvx_i + 1))")
+        adfgvx_symbol1=$(printf "%s" "$adfgvx_pair" | cut -c1)
+        adfgvx_symbol2=$(printf "%s" "$adfgvx_pair" | cut -c2)
 
-        case $symbol1 in
-            A) row=0 ;;
-            D) row=1 ;;
-            F) row=2 ;;
-            G) row=3 ;;
-            V) row=4 ;;
-            X) row=5 ;;
+        case $adfgvx_symbol1 in
+            A) adfgvx_row=0 ;;
+            D) adfgvx_row=1 ;;
+            F) adfgvx_row=2 ;;
+            G) adfgvx_row=3 ;;
+            V) adfgvx_row=4 ;;
+            X) adfgvx_row=5 ;;
         esac
 
-        case $symbol2 in
-            A) col=0 ;;
-            D) col=1 ;;
-            F) col=2 ;;
-            G) col=3 ;;
-            V) col=4 ;;
-            X) col=5 ;;
+        case $adfgvx_symbol2 in
+            A) adfgvx_col=0 ;;
+            D) adfgvx_col=1 ;;
+            F) adfgvx_col=2 ;;
+            G) adfgvx_col=3 ;;
+            V) adfgvx_col=4 ;;
+            X) adfgvx_col=5 ;;
         esac
 
-        index=$(( row * 6 + col ))
-        mapped_char=$(echo "$keysquare" | cut -c $((index + 1)))
+        adfgvx_index=$(( adfgvx_row * 6 + adfgvx_col ))
+        adfgvx_mapped_char=$(echo "$adfgvx_keysquare" | cut -c $((adfgvx_index + 1)))
 
-        result=$(printf "%s%s" "$result" "$mapped_char")
-        i=$((i + 2))
+        adfgvx_result=$(printf "%s%s" "$adfgvx_result" "$adfgvx_mapped_char")
+        adfgvx_i=$((adfgvx_i + 2))
     done
 
-    printf "%s\n" "$result"
+    printf "%s\n" "$adfgvx_result"
     else
         echo "Error: Invalid mode. Use 'encrypt' or 'decrypt'." >&2
         return 1
