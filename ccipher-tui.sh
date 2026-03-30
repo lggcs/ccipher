@@ -179,28 +179,210 @@ get_params() {
     
     case "$cipher" in
         caesar)
-            SHIFT=$(input_field "Shift value (1-25)" "3")
+            # Caesar cipher needs individual prompt
+            clear_screen
+            draw_box 1 1 $COLS 5 "Caesar Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}Simple substitution cipher (shift cipher)${RESET}"
+            
+            current_row=6
+            
+            draw_box 5 1 $COLS 6 "Shift Value"
+            move_cursor 7 3
+            printf "${WHITE}Shift value (1-25)${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Each letter is shifted by this amount.${RESET}"
+            move_cursor 9 3
+            printf "${DIM}Example: shift 3 -> A becomes D, B becomes E${RESET}"
+            move_cursor 10 3
+            printf "${DIM}Classic Caesar used shift 3 (ROT3 = Caesar)${RESET}"
+            move_cursor 11 3
+            printf "${WHITE}Enter shift:${RESET} "
+            printf "${ESC}[?25h"
+            read -r SHIFT
+            printf "${ESC}[?25l"
+            [ -z "$SHIFT" ] && SHIFT="3"
             PARAMS="-s $SHIFT"
+            current_row=13
             ;;
         affine)
-            A_VAL=$(input_field "Multiplier 'a' (must be coprime to 26)" "5")
-            B_VAL=$(input_field "Additive 'b'" "8")
+            # Affine cipher needs two parameter prompts
+            clear_screen
+            draw_box 1 1 $COLS 5 "Affine Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}Mathematical substitution: (ax + b) mod 26${RESET}"
+            
+            current_row=6
+            
+            # Parameter 1: Multiplier
+            draw_box 5 1 $COLS 6 "Parameter 1: Multiplier"
+            move_cursor 7 3
+            printf "${WHITE}Multiplier 'a' (must be coprime to 26)${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Valid values: 1,3,5,7,9,11,15,17,19,21,23,25${RESET}"
+            move_cursor 9 3
+            printf "${DIM}Example: a=5 means E->X in the cipher alphabet${RESET}"
+            move_cursor 10 3
+            printf "${WHITE}Enter multiplier:${RESET} "
+            printf "${ESC}[?25h"
+            read -r A_VAL
+            printf "${ESC}[?25l"
+            [ -z "$A_VAL" ] && A_VAL="5"
+            
+            # Parameter 2: Additive
+            draw_box 12 1 $COLS 5 "Parameter 2: Additive"
+            move_cursor 14 3
+            printf "${WHITE}Additive 'b' (0-25)${RESET}"
+            move_cursor 15 3
+            printf "${DIM}Shifts the result by this amount.${RESET}"
+            move_cursor 16 3
+            printf "${DIM}Example: b=8 means final shift of 8${RESET}"
+            move_cursor 17 3
+            printf "${WHITE}Enter additive:${RESET} "
+            printf "${ESC}[?25h"
+            read -r B_VAL
+            printf "${ESC}[?25l"
+            [ -z "$B_VAL" ] && B_VAL="8"
             PARAMS="-a $A_VAL -b $B_VAL"
+            current_row=19
             ;;
         simple|substitution)
-            KEY=$(input_field "Keyword" "SECRETKEY")
+            # Simple substitution cipher
+            clear_screen
+            draw_box 1 1 $COLS 5 "Simple Substitution"
+            move_cursor 3 3
+            printf "${YELLOW}Monoalphabetic substitution cipher${RESET}"
+            
+            current_row=6
+            
+            draw_box 5 1 $COLS 7 "Keyword"
+            move_cursor 7 3
+            printf "${WHITE}Keyword (letters only)${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Creates a mixed alphabet starting with keyword.${RESET}"
+            move_cursor 9 3
+            printf "${DIM}Example: KEYWORD -> KEYWORDABCFGHIJLMNPQSUVXZ${RESET}"
+            move_cursor 10 3
+            printf "${DIM}(Keyword letters first, then remaining alphabet)${RESET}"
+            move_cursor 11 3
+            printf "${WHITE}Enter keyword:${RESET} "
+            printf "${ESC}[?25h"
+            read -r KEY
+            printf "${ESC}[?25l"
+            [ -z "$KEY" ] && KEY="SECRETKEY"
             PARAMS="-k $KEY"
+            current_row=14
             ;;
-        vigenere|autokey|beaufort|porta)
-            KEY=$(input_field "Keyword" "KEY")
-            PARAMS="-k $KEY"
+        vigenere|autokey|beaufort|porta|trithemius)
+            # Polyaplhabetic ciphers with keyword
+            local cipher_name=$(echo "$cipher" | sed 's/\(.\)/\u\1/')
+            clear_screen
+            draw_box 1 1 $COLS 5 "$cipher_name Cipher"
+            move_cursor 3 3
+            case "$cipher" in
+                vigenere) printf "${YELLOW}Polyalphabetic cipher using keyword${RESET}" ;;
+                autokey) printf "${YELLOW}Vigenère variant with auto-keying${RESET}" ;;
+                beaufort) printf "${YELLOW}Reciprocal cipher: (K - P) mod 26${RESET}" ;;
+                porta) printf "${YELLOW}Periodic cipher with 13 alphabets${RESET}" ;;
+                trithemius) printf "${YELLOW}Progressive cipher, no key needed${RESET}" ;;
+            esac
+            
+            current_row=6
+            
+            if [ "$cipher" = "trithemius" ]; then
+                # Trithemius has no key
+                draw_box 5 1 $COLS 5 "No Parameters"
+                move_cursor 7 3
+                printf "${DIM}Trithemius uses all shifts from 0-25 progressively.${RESET}"
+                move_cursor 8 3
+                printf "${DIM}Each letter is encrypted with the next shift.${RESET}"
+                PARAMS=""
+                current_row=10
+            else
+                draw_box 5 1 $COLS 6 "Keyword"
+                move_cursor 7 3
+                printf "${WHITE}Keyword (letters only)${RESET}"
+                move_cursor 8 3
+                printf "${DIM}Keyword cycles to match message length.${RESET}"
+                move_cursor 9 3
+                printf "${DIM}Longer keywords = more security.${RESET}"
+                move_cursor 10 3
+                printf "${DIM}Example: KEY, LEMON, SECRET${RESET}"
+                move_cursor 11 3
+                printf "${WHITE}Enter keyword:${RESET} "
+                printf "${ESC}[?25h"
+                read -r KEY
+                printf "${ESC}[?25l"
+                [ -z "$KEY" ] && KEY="KEY"
+                PARAMS="-k $KEY"
+                current_row=13
+            fi
             ;;
         gronsfeld)
-            KEY=$(input_field "Numeric key" "31415")
+            # Gronsfeld cipher
+            clear_screen
+            draw_box 1 1 $COLS 5 "Gronsfeld Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}Variant of Vigenère using numeric key${RESET}"
+            
+            current_row=6
+            
+            draw_box 5 1 $COLS 6 "Numeric Key"
+            move_cursor 7 3
+            printf "${WHITE}Numeric key (digits 0-9)${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Each digit gives the shift for that position.${RESET}"
+            move_cursor 9 3
+            printf "${DIM}Example: 31415 -> shifts 3,1,4,1,5,3,1,4...${RESET}"
+            move_cursor 10 3
+            printf "${WHITE}Enter numeric key:${RESET} "
+            printf "${ESC}[?25h"
+            read -r KEY
+            printf "${ESC}[?25l"
+            [ -z "$KEY" ] && KEY="31415"
             PARAMS="-k $KEY"
+            current_row=12
             ;;
         polybius|nihilist)
-            PARAMS=""
+            # No parameters needed for polybius, keyword for nihilist
+            local cipher_name=$(echo "$cipher" | sed 's/\(.\)/\u\1/')
+            clear_screen
+            draw_box 1 1 $COLS 5 "$cipher_name Cipher"
+            move_cursor 3 3
+            case "$cipher" in
+                polybius) printf "${YELLOW}5x5 square encoding letters to coordinates${RESET}" ;;
+                nihilist) printf "${YELLOW}Russian nihilist cipher (Polybius + key)${RESET}" ;;
+            esac
+            
+            current_row=6
+            
+            if [ "$cipher" = "nihilist" ]; then
+                draw_box 5 1 $COLS 6 "Keyword"
+                move_cursor 7 3
+                printf "${WHITE}Keyword for key addition${RESET}"
+                move_cursor 8 3
+                printf "${DIM}Combines with Polybius coordinates.${RESET}"
+                move_cursor 9 3
+                printf "${DIM}Example: KEY, SECRET${RESET}"
+                move_cursor 10 3
+                printf "${WHITE}Enter keyword:${RESET} "
+                printf "${ESC}[?25h"
+                read -r KEY
+                printf "${ESC}[?25l"
+                [ -z "$KEY" ] && KEY="KEY"
+                PARAMS="-k $KEY"
+                move_cursor 12 3
+                printf "${DIM}Note: Uses standard 5x5 Polybius square (I=J)${RESET}"
+                current_row=14
+            else
+                draw_box 5 1 $COLS 5 "No Parameters"
+                move_cursor 7 3
+                printf "${DIM}Uses standard 5x5 Polybius square (I=J).${RESET}"
+                move_cursor 8 3
+                printf "${DIM}Letter positions encoded as row-column pairs.${RESET}"
+                PARAMS=""
+                current_row=10
+            fi
             ;;
         adfgvx)
             # ADFGVX needs individual prompts for keysquare
@@ -264,25 +446,199 @@ get_params() {
             PARAMS="-k $KEY -q $KEYREQ"
             ;;
         railfence)
-            RAILS=$(input_field "Number of rails" "3")
+            # Rail fence cipher
+            clear_screen
+            draw_box 1 1 $COLS 5 "Rail Fence Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}Transposition cipher (zigzag pattern)${RESET}"
+            
+            current_row=6
+            
+            draw_box 5 1 $COLS 6 "Number of Rails"
+            move_cursor 7 3
+            printf "${WHITE}Number of rails (2-10)${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Message written in zigzag across rails.${RESET}"
+            move_cursor 9 3
+            printf "${DIM}More rails = more complex pattern.${RESET}"
+            move_cursor 10 3
+            printf "${DIM}Example: 3 rails makes W-shaped pattern${RESET}"
+            move_cursor 11 3
+            printf "${WHITE}Enter number of rails:${RESET} "
+            printf "${ESC}[?25h"
+            read -r RAILS
+            printf "${ESC}[?25l"
+            [ -z "$RAILS" ] && RAILS="3"
             PARAMS="-k $RAILS"
+            current_row=13
             ;;
         columnar)
-            KEY=$(input_field "Keyword (letters for column order)" "ZEBRA")
+            # Columnar transposition
+            clear_screen
+            draw_box 1 1 $COLS 5 "Columnar Transposition"
+            move_cursor 3 3
+            printf "${YELLOW}Transposition using column rearrangement${RESET}"
+            
+            current_row=6
+            
+            draw_box 5 1 $COLS 6 "Keyword"
+            move_cursor 7 3
+            printf "${WHITE}Keyword (letters for column order)${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Columns rearranged by alphabetical order.${RESET}"
+            move_cursor 9 3
+            printf "${DIM}Example: ZEBRA -> columns ordered A,B,E,R,Z${RESET}"
+            move_cursor 10 3
+            printf "${DIM}            A=col2, B=col4, E=col3, R=col5, Z=col1${RESET}"
+            move_cursor 11 3
+            printf "${WHITE}Enter keyword:${RESET} "
+            printf "${ESC}[?25h"
+            read -r KEY
+            printf "${ESC}[?25l"
+            [ -z "$KEY" ] && KEY="ZEBRA"
             PARAMS="-k $KEY"
+            current_row=13
             ;;
         playfair)
-            KEY=$(input_field "Keyword" "SECRETKEY")
+            # Playfair cipher
+            clear_screen
+            draw_box 1 1 $COLS 5 "Playfair Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}Bigraphic cipher using 5x5 grid${RESET}"
+            
+            current_row=6
+            
+            draw_box 5 1 $COLS 7 "Keyword"
+            move_cursor 7 3
+            printf "${WHITE}Keyword (creates 5x5 grid)${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Grid filled with keyword, then remaining letters.${RESET}"
+            move_cursor 9 3
+            printf "${DIM}I and J share the same cell in the grid.${RESET}"
+            move_cursor 10 3
+            printf "${DIM}Double letters separated with X. Odd lengths padded.${RESET}"
+            move_cursor 11 3
+            printf "${DIM}Example: PLAYFAIR, SECRETKEY${RESET}"
+            move_cursor 12 3
+            printf "${WHITE}Enter keyword:${RESET} "
+            printf "${ESC}[?25h"
+            read -r KEY
+            printf "${ESC}[?25l"
+            [ -z "$KEY" ] && KEY="SECRETKEY"
             PARAMS="-k $KEY"
+            current_row=14
             ;;
         foursquare)
-            KEY1=$(input_field "First keyword" "KEY1")
-            KEY2=$(input_field "Second keyword" "KEY2")
+            # Four-square cipher
+            clear_screen
+            draw_box 1 1 $COLS 5 "Four-Square Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}Bigraphic cipher using four 5x5 grids${RESET}"
+            
+            current_row=6
+            
+            draw_box 5 1 $COLS 6 "First Keyword"
+            move_cursor 7 3
+            printf "${WHITE}First keyword (upper-left grid)${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Creates mixed alphabet in one quadrant.${RESET}"
+            move_cursor 9 3
+            printf "${DIM}Example: KEY1, ALPHA${RESET}"
+            move_cursor 10 3
+            printf "${WHITE}Enter first keyword:${RESET} "
+            printf "${ESC}[?25h"
+            read -r KEY1
+            printf "${ESC}[?25l"
+            [ -z "$KEY1" ] && KEY1="KEY1"
+            
+            draw_box 12 1 $COLS 6 "Second Keyword"
+            move_cursor 14 3
+            printf "${WHITE}Second keyword (lower-right grid)${RESET}"
+            move_cursor 15 3
+            printf "${DIM}Creates mixed alphabet in other quadrant.${RESET}"
+            move_cursor 16 3
+            printf "${DIM}Example: KEY2, BETA${RESET}"
+            move_cursor 17 3
+            printf "${WHITE}Enter second keyword:${RESET} "
+            printf "${ESC}[?25h"
+            read -r KEY2
+            printf "${ESC}[?25l"
+            [ -z "$KEY2" ] && KEY2="KEY2"
             PARAMS="-k $KEY1 -2 $KEY2"
+            current_row=19
             ;;
         bifid)
-            KEY=$(input_field "Keyword" "KEY")
+            # Bifid cipher
+            clear_screen
+            draw_box 1 1 $COLS 5 "Bifid Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}Fractionating cipher (Polybius + transposition)${RESET}"
+            
+            current_row=6
+            
+            draw_box 5 1 $COLS 6 "Keyword"
+            move_cursor 7 3
+            printf "${WHITE}Keyword (creates mixed alphabet)${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Letters converted to coordinates, then${RESET}"
+            move_cursor 9 3
+            printf "${DIM}coordinates are transposed and recombined.${RESET}"
+            move_cursor 10 3
+            printf "${DIM}Example: KEY, SECRET${RESET}"
+            move_cursor 11 3
+            printf "${WHITE}Enter keyword:${RESET} "
+            printf "${ESC}[?25h"
+            read -r KEY
+            printf "${ESC}[?25l"
+            [ -z "$KEY" ] && KEY="KEY"
             PARAMS="-k $KEY"
+            current_row=13
+            ;;
+        rot13)
+            # ROT13 - no parameters
+            clear_screen
+            draw_box 1 1 $COLS 5 "ROT13 Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}Caesar cipher with shift 13${RESET}"
+            draw_box 5 1 $COLS 5 "No Parameters"
+            move_cursor 7 3
+            printf "${DIM}ROT13 is its own inverse.${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Applying twice returns original text.${RESET}"
+            move_cursor 9 3
+            printf "${DIM}Special case of Caesar with shift 13.${RESET}"
+            PARAMS=""
+            current_row=11
+            ;;
+        atbash)
+            # Atbash - no parameters
+            clear_screen
+            draw_box 1 1 $COLS 5 "Atbash Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}Hebrew substitution cipher${RESET}"
+            draw_box 5 1 $COLS 5 "No Parameters"
+            move_cursor 7 3
+            printf "${DIM}Self-inverse: A<->Z, B<->Y, etc.${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Oldest known substitution cipher.${RESET}"
+            PARAMS=""
+            current_row=10
+            ;;
+        bacon)
+            # Bacon cipher - no parameters
+            clear_screen
+            draw_box 1 1 $COLS 5 "Bacon Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}Steganographic cipher using binary encoding${RESET}"
+            draw_box 5 1 $COLS 6 "No Parameters"
+            move_cursor 7 3
+            printf "${DIM}Each letter = 5-character code of A and B${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Example: A=AAAAA, B=AAAAB, ... Z=BBABB${RESET}"
+            move_cursor 9 3
+            printf "${DIM}Can hide message within innocuous text.${RESET}"
+            PARAMS=""
+            current_row=11
             ;;
         hill)
             # Hill cipher needs individual prompts with explanation
