@@ -1850,6 +1850,7 @@ vic_encrypt() {
     ve_row_labels="$7"
     ve_digits_50="$8"
     ve_cols_1="$9"
+    echo "DEBUG: ve_cols_1=$ve_cols_1 ve_cols_2=$ve_cols_2 ve_digits_50=$ve_digits_50" >&2
     ve_cols_2="${10}"
     ve_key1_digits="${11}"
     ve_result=""
@@ -1966,16 +1967,10 @@ vic_encrypt() {
     while [ $(( ${#ve_encoded} % 5 )) -ne 0 ]; do
         ve_encoded="${ve_encoded}${ve_pad_digit}"
     done
-    
-    # Historical VIC: message must be >= cols_1 + cols_2 for transposition security
-    # Add more padding if needed
-    ve_min_len=$((ve_cols_1 + ve_cols_2))
-    while [ ${#ve_encoded} -lt $ve_min_len ]; do
-        ve_encoded="${ve_encoded}${ve_pad_digit}"
-    done
 
     # Transposition 1: use first ve_cols_1 digits as column key
     # Generate column order by sorting on digit values
+    echo "DEBUG: ve_encoded="$ve_encoded" cols=$ve_cols_1 key extraction from ve_digits_50" >&2
     ve_key1=$(echo "$ve_digits_50" | cut -c -$ve_cols_1)
     ve_trans1=$(vic_columnar_encrypt "$ve_encoded" "$ve_key1")
 
@@ -2146,10 +2141,9 @@ vic_decrypt() {
             # Check for space: row_label[2] + 0
             if [ $vd_is_row -eq 2 ] && [ "$vd_d2" = "0" ]; then
                 vd_result="$vd_result "
-                vd_i=$((vd_i + 1))
                 continue
             fi
-
+            
             # Map column digit to letter position
             vd_col=$vd_d2
             if [ $vd_is_row -eq 1 ]; then
@@ -2162,7 +2156,6 @@ vic_decrypt() {
 
             vd_char=$(echo "$vd_remaining" | cut -c $vd_alpha_pos)
             vd_result="$vd_result$vd_char"
-            vd_i=$((vd_i + 1))
             continue
         else
             # Single digit encoding - find position in singles
@@ -2290,9 +2283,8 @@ vic_columnar_decrypt() {
     fi
 
     # Total plaintext length should match ciphertext length
-    # Columns 0 to extra-1 have vcd_rows elements (longer columns)
-    # Columns extra to cols-1 have vcd_rows-1 elements (shorter columns)
-    # When extra=0, ALL columns have exactly vcd_rows elements
+    # Columns 0 to extra-1 have vcd_rows elements
+    # Columns extra to cols-1 have vcd_rows-1 elements
 
     # Get column order from digit key
     vcd_col_order=$(vic_key_to_col_order "$vcd_key")
@@ -2301,19 +2293,14 @@ vic_columnar_decrypt() {
     vcd_idx=1
     for vcd_pos in $vcd_col_order; do
         vcd_col=$((vcd_pos - 1))  # 0-indexed
-
+        
         # Length depends on plaintext column position
-        # Columns 0..extra-1 are long (vcd_rows), columns extra..cols-1 are short (vcd_rows-1)
-        # When extra=0, no columns are long, all have vcd_rows-1 elements? NO!
-        # When extra=0, ALL columns have vcd_rows elements (no short columns)
-        if [ $vcd_extra -gt 0 ] && [ $vcd_col -lt $vcd_extra ]; then
-            vcd_col_len=$vcd_rows
-        elif [ $vcd_extra -eq 0 ]; then
+        if [ $vcd_col -lt $vcd_extra ]; then
             vcd_col_len=$vcd_rows
         else
             vcd_col_len=$((vcd_rows - 1))
         fi
-
+        
         if [ $vcd_col_len -gt 0 ]; then
             eval "vcd_col_${vcd_pos}=\$(echo \"\$vcd_text\" | cut -c ${vcd_idx}-$((vcd_idx + vcd_col_len - 1)))"
             vcd_idx=$((vcd_idx + vcd_col_len))
