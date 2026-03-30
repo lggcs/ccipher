@@ -106,3 +106,24 @@ HIDEX
 - Hill cipher requires a key matrix with determinant coprime to 26
 - ADFGVX requires a 36-character keysquare
 - Playfair handles double letters by inserting 'X'
+
+## TUI (Terminal User Interface)
+
+A graphical terminal interface is available via `ccipher-tui.sh`:
+
+```
+./ccipher-tui.sh
+```
+
+The TUI provides:
+- Interactive menu-based cipher selection
+- Category-organized cipher list
+- Input validation and parameter prompts
+- Result display with clipboard support
+- Navigation between encryption and decryption modes
+
+Features:
+- Pure POSIX shell implementation (no bashisms)
+- ANSI color support
+- Works in most terminal emulators
+- Keyboard navigation with number/letter selection
