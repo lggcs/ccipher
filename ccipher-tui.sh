@@ -285,11 +285,34 @@ get_params() {
             PARAMS="-k $KEY"
             ;;
         hill)
-            printf "${YELLOW}Note: Hill cipher requires a numeric key matrix${RESET}\n"
-            printf "For 2x2 matrix: 4 numbers (e.g., '3 2 5 7')${RESET}\n"
-            printf "Matrix must have determinant coprime to 26.${RESET}\n"
-            KEY=$(input_field "Matrix elements (space-separated)" "3 2 5 7")
+            # Hill cipher needs individual prompts with explanation
+            clear_screen
+            draw_box 1 1 $COLS 5 "Hill Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}Matrix-based cipher using linear algebra${RESET}"
+            
+            current_row=6
+            
+            # Parameter: Matrix elements
+            draw_box 5 1 $COLS 8 "Matrix Key"
+            move_cursor 7 3
+            printf "${WHITE}Matrix elements (space-separated numbers)${RESET}"
+            move_cursor 8 3
+            printf "${DIM}2x2 matrix: 4 numbers  (e.g., 3 2 5 7)${RESET}"
+            move_cursor 9 3
+            printf "${DIM}3x3 matrix: 9 numbers (e.g., 6 24 1 13 16 10 20 17 15)${RESET}"
+            move_cursor 10 3
+            printf "${YELLOW}Requirement: determinant must be coprime to 26${RESET}"
+            move_cursor 11 3
+            printf "${DIM}Valid determinants: 1,3,5,7,9,11,15,17,19,21,23,25${RESET}"
+            move_cursor 12 3
+            printf "${WHITE}Enter matrix elements:${RESET} "
+            printf "${ESC}[?25h"
+            read -r KEY
+            printf "${ESC}[?25l"
+            [ -z "$KEY" ] && KEY="3 2 5 7"
             PARAMS="-k $KEY"
+            current_row=14
             ;;
         vic)
             # VIC cipher needs individual prompts for each parameter
