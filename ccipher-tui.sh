@@ -160,6 +160,9 @@ input_field() {
     printf '%s' "$value"
 }
 
+# Global variables for storing generated values
+ADFGVX_KEYSQUARE=""
+
 # Cipher categories
 CIPHER_NAMES="caesar|rot13|atbash|affine|simple|substitution"
 CIPHER_NAMES="$CIPHER_NAMES|vigenere|autokey|beaufort|gronsfeld|porta|trithemius"
@@ -207,6 +210,7 @@ get_params() {
             printf "${YELLOW}WWI German field cipher using 6x6 Polybius square${RESET}"
             
             current_row=6
+            ADFGVX_KEYSQUARE=""  # Reset
             
             # Parameter 1: Keyword
             draw_box 5 1 $COLS 5 "Parameter 1: Keyword"
@@ -245,6 +249,7 @@ get_params() {
             if [ -z "$KEYREQ" ]; then
                 # Generate random keysquare: shuffle A-Z0-9 (POSIX compatible)
                 KEYREQ=$(printf '%s\n' A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 0 1 2 3 4 5 6 7 8 9 | shuf | tr -d '\n')
+                ADFGVX_KEYSQUARE="$KEYREQ"  # Store for result display
                 move_cursor 19 3
                 printf "${GREEN}Generated keysquare:${RESET}"
                 move_cursor 20 3
@@ -368,10 +373,10 @@ show_result() {
     local cipher="$2"
     local input="$3"
     local output="$4"
-    
+
     clear_screen
     draw_box 1 1 $COLS 7 "Result"
-    
+
     move_cursor 3 3
     printf "${BOLD}Cipher:${RESET} %s" "$cipher"
     move_cursor 4 3
@@ -380,7 +385,7 @@ show_result() {
     printf "${BOLD}Input:${RESET}  %s" "$input"
     move_cursor 6 3
     printf "${BOLD}Output:${RESET} "
-    
+
     # Handle long output
     if [ ${#output} -gt 60 ]; then
         printf "${GREEN}%s${RESET}" "$(echo "$output" | fold -w 70 | head -5)"
@@ -388,8 +393,18 @@ show_result() {
         printf "${GREEN}%s${RESET}" "$output"
     fi
     
-    move_cursor 9 1
-    printf "${DIM}Copy output to clipboard? [y/N]${RESET} "
+    # Show ADFGVX generated keysquare if applicable
+    if [ "$cipher" = "adfgvx" ] && [ -n "$ADFGVX_KEYSQUARE" ]; then
+        move_cursor 8 3
+        printf "${YELLOW}Generated Keysquare (save for decryption):${RESET}"
+        move_cursor 9 3
+        printf "  ${ADFGVX_KEYSQUARE}"
+        move_cursor 11 1
+        printf "${DIM}Copy output to clipboard? [y/N]${RESET} "
+    else
+        move_cursor 9 1
+        printf "${DIM}Copy output to clipboard? [y/N]${RESET} "
+    fi
     
     # Show cursor for input
     printf "${ESC}[?25h"
