@@ -93,69 +93,6 @@ affine_cipher() {
     echo "$result"
 }
 
-# Function to perform matrix operations for encryption/decryption
-hill_cipher() {
-    # Input: mode, key, text
-    mode="$1"
-    key="$2"
-    text="$3"
-
-    # Extract key values
-    k1=$(echo "$key" | cut -d' ' -f1)
-    k2=$(echo "$key" | cut -d' ' -f2)
-    k3=$(echo "$key" | cut -d' ' -f3)
-    k4=$(echo "$key" | cut -d' ' -f4)
-
-    # Calculate determinant and modular inverse for decryption if needed
-    if [ "$mode" = "decrypt" ]; then
-        det=$((k1 * k4 - k2 * k3))
-        det_inv=$(mod_inverse $det 26)  # Function to calculate modular inverse
-        if [ -z "$det_inv" ]; then
-            echo "Error: Key matrix is not invertible under mod 26." >&2
-            exit 1
-        fi
-        # Adjust key for decryption
-        tmp_k1=$k1; tmp_k2=$k2; tmp_k3=$k3; tmp_k4=$k4
-        k1=$((det_inv * tmp_k4 % 26))
-        k2=$((-det_inv * tmp_k2 % 26))
-        k3=$((-det_inv * tmp_k3 % 26))
-        k4=$((det_inv * tmp_k1 % 26))
-        [ "$k1" -lt 0 ] && k1=$((k1 + 26))
-        [ "$k2" -lt 0 ] && k2=$((k2 + 26))
-        [ "$k3" -lt 0 ] && k3=$((k3 + 26))
-        [ "$k4" -lt 0 ] && k4=$((k4 + 26))
-    fi
-
-    # Prepare text: Remove spaces and pad with 'X' if necessary
-    clean_text=$(echo "$text" | tr -d ' ' | tr '[:lower:]' '[:upper:]')
-    [ "$mode" = "encrypt" ] && [ $(( ${#clean_text} % 2 )) -ne 0 ] && clean_text="${clean_text}X"
-
-    # Initialize result
-    result=""
-
-    # Process text in pairs of characters
-    while [ -n "$clean_text" ]; do
-        t1=$(echo "$clean_text" | cut -c1 | od -An -tuC | tr -d ' ')
-        t2=$(echo "$clean_text" | cut -c2 | od -An -tuC | tr -d ' ')
-        t1=$((t1 - 65))
-        t2=$((t2 - 65))
-
-        # Perform matrix multiplication (mod 26)
-        res1=$(( (k1 * t1 + k2 * t2) % 26 ))
-        res2=$(( (k3 * t1 + k4 * t2) % 26 ))
-        res1=$(printf "\\$(printf '%03o' $((res1 + 65)))")
-        res2=$(printf "\\$(printf '%03o' $((res2 + 65)))")
-
-        # Append to result
-        result="$result$res1$res2"
-
-        # Move to the next pair
-        clean_text=$(echo "$clean_text" | cut -c3-)
-    done
-
-    echo "$result"
-}
-
 # Function to perform Rot13 encryption/decryption
 rot13() {
     local text="$1"
@@ -691,22 +628,13 @@ hill_cipher() {
     gcd=$(gcd "$det" 26)  # Function to calculate the GCD
     if [ "$gcd" -ne 1 ]; then
         echo "Error: Invalid key. The determinant ($det) is not coprime with 26." >&2
-        exit 1
+        return 1
     fi
-
-
-    # Check if the determinant is coprime with 26
-    gcd=$(gcd "$det" 26)  # Function to calculate the GCD
-    if [ "$gcd" -ne 1 ]; then
-        echo "Error: Invalid key. The determinant ($det) is not coprime with 26." >&2
-        exit 1
-    fi
-
 
     det_inv=$(mod_inverse "$det" 26)
     if [ -z "$det_inv" ]; then
         echo "Error: The determinant ($det) is not invertible modulo 26. Decryption is not possible with this key." >&2
-        exit 1
+        return 1
     fi
 
     # Adjust key matrix for decryption
@@ -780,7 +708,7 @@ adfgvx_cipher() {
     if [ "$(echo -n "$keysquare" | wc -c)" -ne 36 ]; then
         echo "Error: Keysquare must be exactly 36 characters long." >&2
         generate_and_print_keysquare
-        exit 1
+        return 1
     fi
 
     # Clean and prepare input text
@@ -924,7 +852,7 @@ elif [ "$mode" = "decrypt" ]; then
     printf "%s\n" "$result"
     else
         echo "Error: Invalid mode. Use 'encrypt' or 'decrypt'." >&2
-        exit 1
+        return 1
     fi
 }
 
