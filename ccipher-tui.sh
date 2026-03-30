@@ -243,8 +243,8 @@ get_params() {
             
             # If empty, generate a random keysquare
             if [ -z "$KEYREQ" ]; then
-                # Generate random keysquare: shuffle A-Z0-9
-                KEYREQ=$(printf '%s\n' {A..Z} {0..9} | shuf | tr -d '\n')
+                # Generate random keysquare: shuffle A-Z0-9 (POSIX compatible)
+                KEYREQ=$(printf '%s\n' A B C D E F G H I J K L M N O P Q R S T U V W X Y Z 0 1 2 3 4 5 6 7 8 9 | shuf | tr -d '\n')
                 move_cursor 19 3
                 printf "${GREEN}Generated keysquare:${RESET}"
                 move_cursor 20 3
