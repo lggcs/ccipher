@@ -200,16 +200,52 @@ get_params() {
             PARAMS=""
             ;;
         adfgvx)
-            echo ""
-            printf "${YELLOW}Note: ADFGVX requires a 36-character keysquare${RESET}\n"
-            printf "A random one will be generated if not provided.\n"
-            KEY=$(input_field "Keyword" "KEYWORD")
-            KEYREQ=$(input_field "Keysquare (or press Enter to generate)" "")
+            # ADFGVX needs individual prompts for keysquare
+            clear_screen
+            draw_box 1 1 $COLS 5 "ADFGVX Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}WWI German field cipher using 6x6 Polybius square${RESET}"
+            
+            current_row=6
+            
+            # Parameter 1: Keyword
+            draw_box 5 1 $COLS 5 "Parameter 1: Keyword"
+            move_cursor 7 3
+            printf "${WHITE}Keyword for transposition${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Used to rearrange the ADFGVX letters after encoding.${RESET}"
+            move_cursor 9 3
+            printf "${DIM}Example: KEYWORD, SECRET, ATTACK${RESET}"
+            move_cursor 10 3
+            printf "${WHITE}Enter keyword:${RESET} "
+            printf "${ESC}[?25h"
+            read -r KEY
+            printf "${ESC}[?25l"
+            [ -z "$KEY" ] && KEY="KEYWORD"
+            
+            # Parameter 2: Keysquare
+            draw_box 11 1 $COLS 6 "Parameter 2: Keysquare"
+            move_cursor 13 3
+            printf "${WHITE}Keysquare (36 characters - A-Z and 0-9)${RESET}"
+            move_cursor 14 3
+            printf "${DIM}Forms the 6x6 grid for encoding. Must contain all 26${RESET}"
+            move_cursor 15 3
+            printf "${DIM}letters and 10 digits exactly once.${RESET}"
+            move_cursor 16 3
+            printf "${DIM}Example: PHQGMEMAZBIRVCXNSYODFLEKUTHWQPZMNXY${RESET}"
+            move_cursor 17 3
+            printf "${DIM}Press Enter to auto-generate a random keysquare.${RESET}"
+            move_cursor 18 3
+            printf "${WHITE}Enter keysquare:${RESET} "
+            printf "${ESC}[?25h"
+            read -r KEYREQ
+            printf "${ESC}[?25l"
             if [ -n "$KEYREQ" ]; then
                 PARAMS="-k $KEY -q $KEYREQ"
             else
                 PARAMS="-k $KEY"
             fi
+            current_row=20
             ;;
         railfence)
             RAILS=$(input_field "Number of rails" "3")
