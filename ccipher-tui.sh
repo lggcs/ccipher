@@ -418,7 +418,7 @@ get_params() {
             move_cursor 15 3
             printf "${DIM}letters and 10 digits exactly once.${RESET}"
             move_cursor 16 3
-            printf "${DIM}Example: PHQGMEMAZBIRVCXNSYODFLEKUTHWQPZMNXY${RESET}"
+            printf "${DIM}Example: ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789${RESET}"
             move_cursor 17 3
             printf "${DIM}Press Enter to auto-generate a random keysquare.${RESET}"
             move_cursor 18 3
