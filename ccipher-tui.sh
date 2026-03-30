@@ -240,39 +240,74 @@ get_params() {
             PARAMS="-k $KEY"
             ;;
         vic)
-            draw_box 15 1 $COLS 10 "VIC Cipher Parameters"
-            move_cursor 17 3
-            printf "${YELLOW}Soviet Cold War cipher${RESET}"
-            move_cursor 18 3
-            printf "${DIM}Keyphrase (20+ chars):${RESET}"
-            move_cursor 19 3
-            printf "${DIM}Date (6 digits):${RESET}"
-            move_cursor 20 3
-            printf "${DIM}Personal number (1-2):${RESET}"
-            move_cursor 21 3
-            printf "${DIM}Indicator (5 digits):${RESET}"
+            # VIC cipher needs individual prompts for each parameter
+            clear_screen
+            draw_box 1 1 $COLS 5 "VIC Cipher"
+            move_cursor 3 3
+            printf "${YELLOW}Soviet Cold War hand cipher (most complex ever used)${RESET}"
             
-            # Get input with proper positioning
+            current_row=6
+            
+            # Parameter 1: Keyphrase
+            draw_box 5 1 $COLS 5 "Parameter 1: Keyphrase"
+            move_cursor 7 3
+            printf "${WHITE}Keyphrase (at least 20 characters)${RESET}"
+            move_cursor 8 3
+            printf "${DIM}Used to derive the encryption key. Longer is more secure.${RESET}"
+            move_cursor 9 3
+            printf "${DIM}Example: THISISAVERYLONGKEYPHRASE${RESET}"
+            move_cursor 10 3
+            printf "${WHITE}Enter keyphrase:${RESET} "
             printf "${ESC}[?25h"
-            move_cursor 17 25
             read -r KEY
+            printf "${ESC}[?25l"
             [ -z "$KEY" ] && KEY="THISISAVERYLONGKEYPHRASE"
             
-            move_cursor 18 25
+            # Parameter 2: Date
+            draw_box 11 1 $COLS 5 "Parameter 2: Date"
+            move_cursor 13 3
+            printf "${WHITE}Date (6 digits in DDMMYY format)${RESET}"
+            move_cursor 14 3
+            printf "${DIM}Often the date of the message. Example: 071177 (July 11, 1977)${RESET}"
+            move_cursor 15 3
+            printf "${WHITE}Enter date:${RESET} "
+            printf "${ESC}[?25h"
             read -r DATE
+            printf "${ESC}[?25l"
             [ -z "$DATE" ] && DATE="071177"
             
-            move_cursor 19 25
+            # Parameter 3: Personal Number
+            draw_box 17 1 $COLS 5 "Parameter 3: Personal Number"
+            move_cursor 19 3
+            printf "${WHITE}Personal number (1-2 digits)${RESET}"
+            move_cursor 20 3
+            printf "${DIM}A secret number known only to sender and receiver.${RESET}"
+            move_cursor 21 3
+            printf "${DIM}Example: 8, 13, 42${RESET}"
+            move_cursor 22 3
+            printf "${WHITE}Enter personal number:${RESET} "
+            printf "${ESC}[?25h"
             read -r PERS
+            printf "${ESC}[?25l"
             [ -z "$PERS" ] && PERS="8"
             
-            move_cursor 20 25
+            # Parameter 4: Indicator
+            draw_box 23 1 $COLS 5 "Parameter 4: Message Indicator"
+            move_cursor 25 3
+            printf "${WHITE}Indicator (5 random digits)${RESET}"
+            move_cursor 26 3
+            printf "${DIM}Inserts into ciphertext to help identify valid messages.${RESET}"
+            move_cursor 27 3
+            printf "${DIM}Example: 12345, 98765, 54321${RESET}"
+            move_cursor 28 3
+            printf "${WHITE}Enter indicator:${RESET} "
+            printf "${ESC}[?25h"
             read -r IND
-            [ -z "$IND" ] && IND="12345"
             printf "${ESC}[?25l"
+            [ -z "$IND" ] && IND="12345"
             
             PARAMS="-k $KEY -d $DATE -p $PERS -i $IND"
-            current_row=23
+            current_row=30
             ;;
         *)
             PARAMS=""
